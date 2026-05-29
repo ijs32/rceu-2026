@@ -1,6 +1,7 @@
 
 import matplotlib.pyplot as plt
 
+savefig = False
 
 def quickplot_scatter(x, y, title = "out"):
     plt.figure(figsize=(6, 5))
@@ -10,7 +11,8 @@ def quickplot_scatter(x, y, title = "out"):
     plt.xlabel('x')
     plt.ylabel('y')
     plt.tight_layout()
-    plt.savefig(title+'.png')
+    if savefig:
+        plt.savefig(title+'.png')
 
 
 def quickplot_1d(x, y, title = "out", xscatter=None, yscatter=None):
@@ -23,7 +25,8 @@ def quickplot_1d(x, y, title = "out", xscatter=None, yscatter=None):
     if xscatter is not None:
         plt.scatter(xscatter,yscatter)
     plt.tight_layout()
-    plt.savefig(title+'.png')
+    if savefig:
+        plt.savefig(title+'.png')
 
 
 def quickplot_hist(samples, title = "out"):
@@ -33,6 +36,7 @@ def quickplot_hist(samples, title = "out"):
     plt.title(title)
     plt.xlabel('Value')
     plt.ylabel('Density')
-    plt.savefig(title+'.png')
+    if savefig:
+        plt.savefig(title+'.png')
 
 

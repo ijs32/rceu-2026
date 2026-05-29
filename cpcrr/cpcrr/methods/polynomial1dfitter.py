@@ -3,6 +3,7 @@
 import numpy as np
 from numpy.polynomial import Polynomial
 
+savefig = False
 
 import matplotlib.pyplot as plt
 
@@ -92,11 +93,12 @@ class Polynomial1DFitter:
             ax.set_ylim((self.ymin, self.ymax))
             ax.scatter(self.x, self.y, **self.scatter_config)
             self.fig.tight_layout()
-            if fname is not None:
-                self.fig.savefig(f"{self.tag}.{fname}.png")
-            else:
-                self.fig.savefig(f"{self.tag}.order{order}.png")
-            self.fig.clear()
+            if savefig:
+                if fname is not None:
+                    self.fig.savefig(f"{self.tag}.{fname}.png")
+                else:
+                    self.fig.savefig(f"{self.tag}.order{order}.png")
+                self.fig.clear()
         return p
 
 

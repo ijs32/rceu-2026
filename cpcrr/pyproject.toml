@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cpcrr"
+version = "0.0.1"
+description = "Common project code for RCEU/RIPP, Summer 2026."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=2.0.2,<3.0.0",
+    "tomli>=2.0.2; python_version < '3.11'",
+]
+
+authors = [
+    {name = "Lucius Schoenbaum", email = "lts0016@uah.edu"},
+]
+
+[project.license]
+text = "MIT"
+
+keywords = ["surrogate modeling", "scientific computing"]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/LuciusSchoenbaum/purr"
+
+[tool.hatch.build]
+exclude = [
+    "**/.DS_Store",
+    "**/__pycache__",
+]
+
+# work in progress.
+# For `pytest` automated testing that won't
+# be needed for the foreseeable time.
+[tool.pytest.ini_options]
+testpaths = ["_test/_N"]
+

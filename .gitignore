@@ -11,6 +11,3 @@ wheels/
 
 # pdfs
 *.pdf
-
-# matlab example code
-matlab-book-code/*

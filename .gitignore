@@ -11,3 +11,6 @@ wheels/
 
 # pdfs
 *.pdf
+
+# books symlinked on my machine
+books

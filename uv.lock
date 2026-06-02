@@ -1359,7 +1359,7 @@ wheels = [
 [[package]]
 name = "research"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "jupyter" },
     { name = "matplotlib" },

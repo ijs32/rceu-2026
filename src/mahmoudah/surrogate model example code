@@ -1,0 +1,48 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ==========================================
+# TASK 1: Implement & Plot Formula (A.1)
+# ==========================================
+# 1. Define x over the range [0, 1] with 500 smooth points
+x = np.linspace(0, 1, 500)
+
+# 2. Translate the math: f(x) = (6x - 2)^2 * sin(12x - 4)
+# Note: The textbook text has a tiny typo "6x2", but the actual formula is (6x - 2)^2
+y = ((6 * x - 2) ** 2) * np.sin(12 * x - 4)
+
+# 3. Create the first plot window
+plt.figure(1, figsize=(7, 4))
+plt.plot(x, y, color="blue", linewidth=2, label="Formula A.1")
+plt.grid(True)
+plt.xlabel("x")
+plt.ylabel("f(x)")
+plt.title("Plot of One-Variable Test Function (Formula A.1)")
+plt.legend()
+
+
+# ==========================================
+# TASK 2: Implement & Plot Formula (A.3)
+# ==========================================
+# 1. Define the input grids for the two variables (x1 and x2)
+x1_values = np.linspace(-5, 10, 100)
+x2_values = np.linspace(0, 15, 100)
+
+# Create a 2D coordinate grid from our ranges
+x1, x2 = np.meshgrid(x1_values, x2_values)
+
+# 2. Translate the Branin Function (Formula A.3) broken down into steps
+term1 = (x2 - (5.1 / (4 * np.pi**2)) * x1**2 + (5 / np.pi) * x1 - 6) ** 2
+term2 = 10 * ((1 - (1 / (8 * np.pi))) * np.cos(x1) + 1)
+term3 = 5 * x1  # Note: Modified Branin adds a 5*x1 term according to section A.2
+
+z = term1 + term2 + term3
+
+# 3. Create the second plot window (Contour Plot)
+plt.figure(2, figsize=(7, 5))
+contour = plt.contour(x1, x2, z, levels=20, cmap="viridis")
+plt.colorbar(contour, label="f(x1, x2)")
+plt.grid(True)
+plt.xlabel("x1")
+plt.ylabel("x2")
+plt.title("Contour Plot of Modified Branin Function (Formula A.3)")

@@ -12,5 +12,5 @@ wheels/
 # pdfs
 *.pdf
 
-# matlab example code
-matlab-book-code/*
+# books symlinked on my machine
+books

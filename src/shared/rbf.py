@@ -68,19 +68,3 @@ class Parametric(RBF):
                 best_loss  = loss
             
         return best_sigma
-
-
-"""
-def cv_error(log_sigma):
-    sigma = 10**log_sigma          # search in log-space
-    total = 0
-    for each fold (or each left-out point):
-        - build PSI on the *training* subset using this sigma
-        - solve PSI @ w = y_train        # the "lower level" repair step
-        - predict at the *held-out* points
-        - accumulate squared error vs. their true y
-    return total / n
-
-result = minimize_scalar(cv_error, bounds=(lo, hi), method='bounded')
-best_sigma = 10**result.x
-"""

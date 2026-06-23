@@ -3,6 +3,8 @@
 
 import numpy as np
 
+
+
 def rbf_linear(r):
     return r
 
@@ -32,4 +34,8 @@ class RadialBasisFitter:
 
     def __init__(self):
         pass
+
+
+
+
 

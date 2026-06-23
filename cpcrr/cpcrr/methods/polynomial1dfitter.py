@@ -30,6 +30,8 @@ class Polynomial1DFitter:
         self.x = datax
         self.y = datay
 
+        self.p = None
+
         self.tag = tag
         self.plot_config = {
             # Darker, muted hex color instead of default neon blue
@@ -99,6 +101,7 @@ class Polynomial1DFitter:
                 else:
                     self.fig.savefig(f"{self.tag}.order{order}.png")
                 self.fig.clear()
+        self.p = p
         return p
 
 
@@ -153,4 +156,14 @@ class Polynomial1DFitter:
         stddev = loss.std()
         self.x, self.y = x_original, y_original
         return loss, mean, stddev
+
+
+    def evaluate(self, x):
+        """
+        Evaluate the model.
+
+        :param x:
+        """
+        y = self.p(x)
+        return y
 

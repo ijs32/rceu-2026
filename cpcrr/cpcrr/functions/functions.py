@@ -89,7 +89,7 @@ def rastrigin(x):
     """
     This function takes a input vector x and
     returns a scalar output of the Rastrigin function,
-    a difficult search problem used to test genetic algorithm (GA).
+    a difficult search problem for a global optimizer.
     Global optimum is 0 at x = [0 0 .... 0]
     :param x: any length array, components between 0..1
     :return: scalar Rastrigin function value
@@ -122,7 +122,7 @@ def branin(x, y):
     X = 15*x-5
     Y = 15*y
     a = 1
-    b = 1.5/(4*np.pi**2)
+    b = 5.1/(4*np.pi**2)
     c = 5/np.pi
     d = 6
     e = 10

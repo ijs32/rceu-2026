@@ -37,7 +37,9 @@ def random_latin_hypercube(
     Raises
     ------
     ValueError
-        If len(ub) != len(lb).
+        if ubs[i] <= lbs[i]
+        
+        if not len(ubs) == len(lbs) == k
     """
     if ubs == [] or lbs == []:
         lbs = [0]*k

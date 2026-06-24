@@ -19,6 +19,7 @@ def psi(r: np.ndarray, code: int = 1, sigma: float = 0, theta: np.ndarray = np.n
         case 6: # inverse multi-quadratic
             return 1 / (np.sqrt(r**2 + sigma**2))
         case 7: # Kriging
-            return r
+            return np.exp(-(theta*r))
+        
         case _:
             return r

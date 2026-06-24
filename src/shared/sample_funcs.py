@@ -1,7 +1,19 @@
 import numpy as np
 
-def appendix(x):
+def appendix_one(x):
     return ((6*x - 2)**2) * np.sin((12*x) - 4)
+
+def branin(matr):
+    x = matr[:,0]
+    y = matr[:,1]
+
+    a = 1.0
+    b = 5.1 / (4.0 * np.pi**2)
+    c = 5.0 / np.pi
+    r = 6.0
+    s = 10.0
+    t = 1.0 / (8.0 * np.pi)
+    return a*(y - b*x**2 + c*x - r)**2 + s*(1 - t)*np.cos(x) + s
 
 def peaks(matr):
     x = matr[:,0]

@@ -3,8 +3,8 @@ import numpy as np
 def random_latin_hypercube(
         n:int, 
         k:int,
-        lb: float = 0,
-        ub: float = 1
+        lbs: list = [],
+        ubs: list = []
     ) -> np.ndarray:
     """
     Generate a random Latin hypercube sampling plan in k dimensions.
@@ -22,10 +22,10 @@ def random_latin_hypercube(
         since the plan places one point per bin.
     k : int
         Number of dimensions (design variables).
-    lb : float, optional
-        Lower bound of the domain in every dimension (default 0).
-    ub : float, optional
-        Upper bound of the domain in every dimension (default 1).
+    lbs : list, optional
+        List of lower bound of the domain in every dimension (default 0).
+    ubs : list, optional
+        List of upper bound of the domain in every dimension (default 1).
         Must satisfy ub > lb.
 
     Returns
@@ -37,11 +37,20 @@ def random_latin_hypercube(
     Raises
     ------
     ValueError
-        If ub <= lb.
+        if ubs[i] <= lbs[i]
+        
+        if not len(ubs) == len(lbs) == k
     """
-    
-    if ub <= lb:
-        raise ValueError("upper bound must be greater than lower bound")
+    if ubs == [] or lbs == []:
+        lbs = [0]*k
+        ubs = [1]*k
+
+    if not len(ubs) == len(lbs) == k:
+        raise ValueError("Upper and Lower bounds do not match eachother or k")
+
+    for ub, lb in zip(ubs, lbs):
+        if ub <= lb:
+            raise ValueError("upper bound must be greater than lower bound")
     
     rng = np.random.default_rng()
 
@@ -50,9 +59,10 @@ def random_latin_hypercube(
     for i in range(k):
         X[:,i] = rng.permutation(n)
     
-    X = (X + 0.5)/n
-    w = ub - lb
+    for i, (ub, lb) in enumerate(zip(ubs, lbs)):
+        X[:,i] = (X[:,i] + 0.5)/n
+        w = ub - lb
 
-    X_scaled = lb + w*X
+        X_scaled = lb + w*X
 
     return X_scaled

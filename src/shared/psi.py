@@ -1,6 +1,6 @@
 import numpy as np
 
-def psi(r: np.ndarray, code: int = 1, sigma: float = 0, theta: np.ndarray = np.ndarray) -> np.ndarray:
+def psi(r: np.ndarray, code: int = 1, sigma: float = 0, theta: np.ndarray = np.ndarray, p: float = 2) -> np.ndarray:
     match code:
         case 1: # linear
             return r
@@ -18,8 +18,6 @@ def psi(r: np.ndarray, code: int = 1, sigma: float = 0, theta: np.ndarray = np.n
             return np.sqrt(r**2 + sigma**2)
         case 6: # inverse multi-quadratic
             return 1 / (np.sqrt(r**2 + sigma**2))
-        case 7: # Kriging
-            return np.exp(-(theta*r))
         
         case _:
             return r

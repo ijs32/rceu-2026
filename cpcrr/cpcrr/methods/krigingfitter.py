@@ -169,7 +169,18 @@ class KrigingFitter:
         u = np.sqrt(np.abs(sigma2))
         return y, u
 
+    def __call__(self, *coords):
+        """
+        Helper to make the fitter's model one-to-one
+        swappable with the objective target function used to
+        build the model. Does not evaluate uncertainty.
 
+        :param coords: tuple of coordinates,
+            this should work regardless of dimension of target function.
+        """
+        x = np.array(coords)
+        y = self.evaluate(x)
+        return y
 
 
     # Testing

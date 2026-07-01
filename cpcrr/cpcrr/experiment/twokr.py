@@ -1,6 +1,8 @@
 
 
-
+from os.path import (
+    join as os_path_join,
+)
 from .experiment_impl.experiment import (
     Experiment,
 )
@@ -13,7 +15,6 @@ from physixlib import (
     popcount,
     get_bit,
 )
-
 
 
 
@@ -47,7 +48,7 @@ class Twokr(Experiment):
     in increasing order based on the binary-number
     stamp defining the parameter setting.
     Example:
-    The parameters are Banana, Apple, Orange.
+    The parameters are A, B, C.
     This is their order, given in the parameter specification file.
     This assigns values 0, 1, 2 to these respectively, and these
     are viewed as place values in a binary number.
@@ -55,24 +56,24 @@ class Twokr(Experiment):
     determines Low, High settings. (This is the order precisely, Low, High.)
     The data for the experiment is stored as::
 
-        1.23 # is the response when Banana low, Apple low, Orange low
-        2.34 # is the response when Banana low, Apple low, Orange high
-        3.45 # is the response when Banana low, Apple high, Orange low
+        1.23 # is the response when A low, B low, C low
+        2.34 # is the response when A low, B low, C high
+        3.45 # is the response when A low, B high, C low
         # etc.
 
-    There is a total of eight rows in this example.
-    The rows are (in this order) 000, 001, 010, 011, 100, 101, 110, 111.
+    There is a total of eight rows in this `k=3` example.
+    In all there are are a total of `2**k` lines, plus a header line.
+    If low/high is mapped to binary digits, then
+    the rows form an ordered list 000, 001, 010, 011, 100, 101, 110, 111,
+    the most natural order from the computational point of view.
 
-    The inputs are two files, whose names are in the default case,
-    ``response.csv`` and ``specification.csv``.
-    The format for the response file is a header plus
-    comma separated values.
-    Each line is::
+    When multiple repetitions `r > 1` are performed, these form columns.
+    Each line then becomes::
 
         <value>,<value>,<value>
 
-    with the ith line having r columns.
-    There are a total of 2**k lines, plus a header line.
+    with every line having `r` columns. A varied number of repetitions
+    is not supported.
 
     .. note::
 
@@ -98,6 +99,10 @@ class Twokr(Experiment):
             specification=specification,
             verbose=verbose,
         )
+        # todo there's a bug/mistake in the impl where
+        #  the specification is unpacked twice, once by
+        #  Experiment and once here. Fix when there is time.
+        #  Experiment should (?) do the same work for both Twokr and Noner.
         lines = self.specification.split('\n')
         self.k = len(lines)
         # if r < 2:
@@ -122,6 +127,7 @@ class Twokr(Experiment):
         self.draw_variatn_noise = 0.0
         self.draw_variatn_current = 0.0
         self.r = None
+        self.out = None
         # > read pspec
         lines = self.specification.split('\n')
         for pidx, line in enumerate(lines):
@@ -129,9 +135,8 @@ class Twokr(Experiment):
             self.pnames[pidx] = items[0].strip()
             level0, level1 = items[1], items[2]
             self.plvl[pidx] = [float(level0), float(level1)]
-        if self.v:
-            print(self.plvl)
-            print(self.pnames)
+        # self.log(f'{self.plvl}')
+        # self.log(f'{self.pnames}')
 
 
 
@@ -160,7 +165,7 @@ class Twokr(Experiment):
         # todo store response.{response_name}.csv
 
         self.out = ""
-        if response[-4] != '.csv':
+        if response[-4:] != '.csv':
             self.data = response.strip()
         else:
             with open(response, 'r') as f:
@@ -177,19 +182,21 @@ class Twokr(Experiment):
         for _ in range(self.N_to_the_k):
             self.esmpls.append(self.Experiment(r=r))
         if self.v:
-            print(f"k {self.k} r {self.r} N_to_the_k {self.N_to_the_k}")
-        out = f'~(2^k)r experiment~\nk = {self.k}, r = {self.r}\n'
-        print(out, end="")
+            self.log(f"k {self.k} r {self.r} N_to_the_k {self.N_to_the_k}")
+        out = f'~(2^k)r experiment~\nk = {self.k}, r = {self.r}'
+        self.log(out, always=True)
         self.out += out
         self.read_data()
-        out = f'response: {self.response_name}\n'
-        print(out, end="")
+        out = f'response: {self.response_name}'
+        self.log(out, always=True)
         self.out += out
         self.compute_model()
         self.compute_values()
         out = self.make_report()
-        print(out, end="")
+        self.log(out, always=True)
         self.out += out
+        with open(os_path_join(self.path, 'log.txt'), 'w') as f:
+            f.write(self._log)
 
 
     class Experiment:
@@ -243,8 +250,7 @@ class Twokr(Experiment):
         lines = self.data.split('\n')
         # We assume there is *always* a header line containing the response name.
         self.response_name = lines[0].strip()
-        if self.v:
-            print(f"response: {self.response_name}")
+        self.log(f"response: {self.response_name}")
         for i, line in enumerate(lines[1:]):
             smpl = self.esmpls[i]
             responses = line.split()
@@ -255,9 +261,8 @@ class Twokr(Experiment):
                     smpl.raw_data[j] = trl
                     smpl.response += trl
                 smpl.response /= self.r
-            if self.v:
-                print(f"smpl {i}: {smpl.raw_data}")
-                print(f"response {i}: {smpl.response}")
+            self.log(f"smpl {i}: {smpl.raw_data}")
+            self.log(f"response {i}: {smpl.response}")
 
 
     def compute_model(self):
@@ -271,8 +276,7 @@ class Twokr(Experiment):
                 sij = self.sign(i, j)
                 self.model.q[j] += sij*self.esmpls[i].response
             self.model.q[j] /= self.N_to_the_k
-            if self.v:
-                print(f"q_j = {self.model.q[j]}")
+            self.log(f"q_j = {self.model.q[j]}")
 
 
 
@@ -320,9 +324,13 @@ class Twokr(Experiment):
         return f"....90% confidence interval ({low}, {high}).\n"
 
 
+    def variation(self, khot):
+        return self.values.SS[khot]/self.values.SST*100.0
+
+
     def state_variation(self, khot):
-        pct = self.values.SS[khot]/self.values.SST*100.0
-        return f"This accounts for {pct}% of all variation in {self.response_name}.\n"
+        pct = self.variation(khot)
+        return f"This accounts for {pct:2.3}% of all variation in {self.response_name}.\n"
 
 
 
@@ -489,6 +497,11 @@ class Twokr(Experiment):
                     out += self.draw_effect(mix)
                     out += self.draw_variation(mix)
             out += '\n'
+        out += ".............................Data..................................\n"
+        out += "theta\n"
+        out += ','.join([f"{self.model.q[khotidx]}" for khotidx in range(1,N_to_the_k)])
+        out += '\nPct-Variation\n'
+        out += ','.join([f"{self.variation(khotidx)}" for khotidx in range(1,N_to_the_k)])
         return out
 
 

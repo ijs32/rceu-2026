@@ -1,30 +1,32 @@
 
 
-from os.path import (
-    join as os_path_join,
+from os import (
+    getcwd as os_getcwd,
 )
-
-from physixlib.visutil import (
-    Figure,
-)
-
-
 
 class Experiment:
     """
     Base class for an experiment,
     in the sense of statistical theory.
+    Data is read from the current working directory.
+
+    Parameters:
+
+        specification (string or array):
+            path, or array of data
+        verbose (boolean):
+            Run verbosely (default: False)
 
     """
 
 
     def __init__(
-        self,
-        specification = None,
-        verbose = False,
+            self,
+            specification,
+            verbose = False,
     ):
-        self.location = None
-        self.fig = Figure()
+        self.wdir = os_getcwd()
+        self.path = self.wdir
         if specification[-4:] != '.csv':
             self.specification = specification.strip()
         else:
@@ -54,8 +56,8 @@ class Experiment:
                 levels.append(leveli.strip())
             # > write level list
             self.plvl.append(levels)
-        self.log(str(self.plvl))
-        self.log(str(self.pnames))
+        # self.log(str(self.plvl))
+        # self.log(str(self.pnames))
         # the (maximum) number of repetitions in levels/groups
         self.r = None
         # the numbers of repetitions in levels/groups, if this is allowed to vary
@@ -122,9 +124,9 @@ class Experiment:
 
 
 
-    def log(self, msg):
-        if self.v:
-            print(f"{msg}\n")
-        self._log += msg
+    def log(self, msg, always=False):
+        if self.v or always:
+            print(msg)
+        self._log += msg+"\n"
 
 

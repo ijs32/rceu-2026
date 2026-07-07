@@ -8,7 +8,33 @@ def random_latin_hypercube(
         lbs: list = [],
         ubs: list = []
     ) -> np.ndarray:
+    """
+    Parameters
+    ----------
+    n : int
+        Number of sample points. Also the number of bins per dimension,
+        since the plan places one point per bin.
+    k : int
+        Number of dimensions (design variables).
+    lbs : list, optional
+        List of lower bound of the domain in every dimension (default 0).
+    ubs : list, optional
+        List of upper bound of the domain in every dimension (default 1).
+        Must satisfy ub > lb.
     
+    Returns
+    -------
+    np.ndarray
+        An (n, k) array of sample points. Each column is a permutation of
+        the same n bin centres, mapped to [lb, ub].
+    
+    Raises
+    ------
+    ValueError
+        if ubs[i] <= lbs[i]
+        
+        if not len(ubs) == len(lbs) == k
+    """
     if ubs == [] or lbs == []:
         lbs = [0]*k
         ubs = [1]*k
@@ -19,7 +45,7 @@ def random_latin_hypercube(
     for ub, lb in zip(ubs, lbs):
         if ub <= lb:
             raise ValueError("upper bound must be greater than lower bound")
-    
+        
     rng = np.random.default_rng()
 
     X = np.zeros((n,k))
@@ -50,7 +76,7 @@ def dist(X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return np.unique(sq_dists, return_counts=True) # returns distinct_d, J
 
 
-def mm_phiq(X,q):
+def mm_phiq(X,q=2):
     d,J = dist(X)
 
     # morris mitchell sampling plan quality criterion
@@ -108,13 +134,10 @@ def best_lhc_by_q(X_start, pop, iter, q = 2):
 
 
 def space_filling_latin_hypercube(
-        n:int,
-        k:int,
-        lbs: list = [],
-        ubs: list = [],
+        X_start: np.ndarray,
         pop:int = 25,
         iter:int = 25
-    ) -> np.ndarray:
+    ) -> dict:
     """
     Generate a random Latin hypercube sampling plan in k dimensions.
 
@@ -126,16 +149,8 @@ def space_filling_latin_hypercube(
 
     Parameters
     ----------
-    n : int
-        Number of sample points. Also the number of bins per dimension,
-        since the plan places one point per bin.
-    k : int
-        Number of dimensions (design variables).
-    lbs : list, optional
-        List of lower bound of the domain in every dimension (default 0).
-    ubs : list, optional
-        List of upper bound of the domain in every dimension (default 1).
-        Must satisfy ub > lb.
+    X_start : np.ndarray
+        A random latin hypercube generated via random_latin_hypercube
     pop : int, optional
         Controls the number of perturbations done to the random latin hypercube
     iter : int, optional
@@ -148,17 +163,8 @@ def space_filling_latin_hypercube(
     -------
     np.ndarray
         An (n, k) array of sample points. Each column is a permutation of
-        the same n bin centres, mapped to [lb, ub].
-
-    Raises
-    ------
-    ValueError
-        if ubs[i] <= lbs[i]
-        
-        if not len(ubs) == len(lbs) == k
+        the same n bin centres.
     """
-    X_start = random_latin_hypercube(n,k,lbs=lbs,ubs=ubs) # get sampling plan
-
     qs = [1,2,5,10,20,50,100]
 
     X_tracker = {
@@ -175,4 +181,5 @@ def space_filling_latin_hypercube(
             X_tracker["phi"] = phi_best
             X_tracker["X"]   = X_best
     
-    return X_tracker["X"]
+    return X_tracker["X"], X_tracker["q"]
+

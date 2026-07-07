@@ -147,33 +147,33 @@ class CoKrigingFitter:
         # for diagnostics
         self.result = result
 
-        # HIGH-FIDELITY:
-        self.d = np.zeros(self.nhigh)
-        for i in range(self.nhigh):
-            self.d[i] = self.datay[self.nlow+i] - rho*self.datay[i]
 
         def negative_concentrated_log_likelihood_high(theta_rho):
             rho = theta_rho[self.dim]
+            # HIGH-FIDELITY:
+            self.d = np.zeros(self.nhigh)
+            for i in range(self.nhigh):
+                self.d[i] = self.datay[self.nlow+i] - rho*self.datay[i]
 
             Psid = np.eye(self.nhigh)*(1.0+1e-11)
             for i in range(0,self.nhigh):
                 for j in range(i+1, self.nhigh):
                     # todo
                     prod = (self.d[i,:] - self.d[j,:])**2
-                    prod = np.dot(theta, prod)
+                    prod = np.dot(theta_rho, prod)
                     # print(f"prod {prod}")
                     cij = np.exp(-prod)
                     Psid[i,j] = cij
                     Psid[j,i] = cij
             if verbose:
                 if self.n < 10:
-                    print(f"Psi {Psi}")
+                    print(f"Psid {Psid}")
                 else:
-                    print(f"Psi")
+                    print(f"Psid")
             # penalty if ill-conditioned:
             # push away the optimizer but don't stop it.
             try:
-                sqrtPsid = np.linalg.cholesky(Psi)
+                sqrtPsid = np.linalg.cholesky(Psid)
             except np.linalg.LinAlgError:
                 print("LINALGERROR")
                 return 1e10
@@ -203,17 +203,17 @@ class CoKrigingFitter:
         theta_rho_0 = np.full([self.dim+1], 0.1)
         # find theta using a numerical method
         result = minimize(
-            negative_concentrated_log_likelihood,
+            negative_concentrated_log_likelihood_high,
             theta_rho_0,
             # todo check the bounds for rho
-            bounds=(self.dim+1)*[(thetamin,thetamax)],
+            bounds=(self.dim+1)*[(theta_rho_min,theta_rho_max)],
             method='L-BFGS-B',
         )
         if verbose:
             print(f"theta {result.x}")
             print("FULL RESULT", result)
         # re-run to lock in final state after theta is found
-        negative_concentrated_log_likelihood(result.x)
+        negative_concentrated_log_likelihood_high(result.x)
         self.thetad = result.x[:self.dim]
         self.rho = result.x[-1]
         # for diagnostics
@@ -223,35 +223,31 @@ class CoKrigingFitter:
         for i in range(0,self.nhigh+self.nlow):
             for j in range(i+1, self.nhigh+self.nlow):
                 if i < self.nlow and j < self.nlow:
+                    # top left corner
                     prod = (self.x[i,:] - self.x[j,:])**2
-                    prod = np.dot(theta, prod)
+                    prod = np.dot(self.theta, prod)
                     cij = self.globvar * np.exp(-prod)
                     self.Sigma[i,j] = cij
                     self.Sigma[j,i] = cij
-                elif i < self.nlow and j >= self.nlow:
-                    # bottom left
-                    prod = (self.x[i,:] - self.x[j,:])**2
-                    prod = np.dot(theta, prod)
-                    cij = self.rho * self.globvar * np.exp(-prod)
-                    self.Sigma[i,j] = cij
-                    self.Sigma[j,i] = cij
-                elif i > self.nlow and j <= self.nlow:
-                    prod = (self.x[i,:] - self.x[j,:])**2
-                    prod = np.dot(theta, prod)
-                    cij = self.rho * self.globvar * np.exp(-prod)
-                    self.Sigma[i,j] = cij
-                    self.Sigma[j,i] = cij
-                else:
-                    # high-fidelity subblock
+                elif i >= self.nlow and j >= self.nlow:
+                    # high-fidelity subblock -- bottom right corner
                     prodc = (self.x[i,:] - self.x[j,:])**2
-                    prodc = np.dot(theta, prodc)
+                    prodc = np.dot(self.theta, prodc)
                     cijc = self.rho**2 * self.globvar * np.exp(-prodc)
 
                     prodd = (self.d[i,:] - self.d[j,:])**2
-                    prodd = np.dot(theta, prodd)
+                    prodd = np.dot(self.thetad, prodd)
                     cijd = self.globvard * np.exp(-prodd)
                     self.Sigma[i,j] = cijc + cijd
                     self.Sigma[j,i] = cijc + cijd
+                else:
+                    # bottom left and top right
+                    prod = (self.x[i,:] - self.x[j,:])**2
+                    prod = np.dot(self.theta, prod)
+                    cij = self.rho * self.globvar * np.exp(-prod)
+                    self.Sigma[i,j] = cij
+                    self.Sigma[j,i] = cij
+
 
 
     def evaluate(self, x):
@@ -265,7 +261,7 @@ class CoKrigingFitter:
         """
         # TODO ____________________________________
 
-        # build psi
+        # build c
         psi = np.zeros([self.n])
         for i in range(self.n):
             prod = (self.x[i,:] - x)**2

@@ -78,7 +78,8 @@ def dist(X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def mm_phiq(X,q=2):
     d,J = dist(X)
-
+    if 0 in d: # penalize any plan with duplicate points
+        return math.inf
     # morris mitchell sampling plan quality criterion
     return sum(((J/(d**q))**(1/q)))
 
@@ -183,3 +184,35 @@ def space_filling_latin_hypercube(
     
     return X_tracker["X"], X_tracker["q"]
 
+
+def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> np.ndarray:
+    rng = np.random.default_rng()
+
+    X_tracker = {
+        "phi": math.inf,
+        "X": np.empty([])
+    }
+
+    for _ in range(iter):
+        # restart to avoid local minima
+        X_best   = rng.choice(cube, size=n, replace=False)
+        phi_best = mm_phiq(X_best, q)
+
+        if phi_best < X_tracker["phi"]:
+            X_tracker["phi"] = phi_best
+            X_tracker["X"]   = X_best
+
+        for i in range(n):
+            # iterate over points in our subset
+            X_test = X_tracker["X"].copy()
+            
+            for point in cube:
+                # try each point from larger sample set
+                X_test[i] = point
+                phi_best  = mm_phiq(X_test, q)
+
+                if phi_best < X_tracker["phi"]:
+                    X_tracker["phi"] = phi_best
+                    X_tracker["X"]   = X_test
+        
+    return X_tracker["X"]

@@ -78,8 +78,8 @@ def dist(X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def mm_phiq(X,q=2):
     d,J = dist(X)
-    if 0 in d: # penalize any plan with duplicate points
-        return math.inf
+
+    # div by zero and overflows don't matter. they return inf meaning the sampling plan gets trashed.
     # morris mitchell sampling plan quality criterion
     return sum(((J/(d**q))**(1/q)))
 
@@ -138,7 +138,7 @@ def space_filling_latin_hypercube(
         X_start: np.ndarray,
         pop:int = 25,
         iter:int = 25
-    ) -> dict:
+    ):
     """
     Generate a random Latin hypercube sampling plan in k dimensions.
 
@@ -185,9 +185,9 @@ def space_filling_latin_hypercube(
     return X_tracker["X"], X_tracker["q"]
 
 
-def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> np.ndarray:
-    rng = np.random.default_rng()
+def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> tuple[np.ndarray, float]:
 
+    rng = np.random.default_rng()
     X_tracker = {
         "phi": math.inf,
         "X": np.empty([])
@@ -204,15 +204,33 @@ def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> np.ndarr
 
         for i in range(n):
             # iterate over points in our subset
-            X_test = X_tracker["X"].copy()
             
             for point in cube:
                 # try each point from larger sample set
+                X_test    = X_tracker["X"].copy()
                 X_test[i] = point
                 phi_best  = mm_phiq(X_test, q)
 
                 if phi_best < X_tracker["phi"]:
                     X_tracker["phi"] = phi_best
                     X_tracker["X"]   = X_test
+
         
-    return X_tracker["X"]
+    return X_tracker["X"], X_tracker["phi"]
+
+
+def align_subset(X_c: np.ndarray, X_e: np.ndarray) -> np.ndarray:
+
+    if X_c.shape[1] != X_e.shape[1]:
+        raise ValueError("X_c and X_e must have same number of dimensions")
+    
+    rows_to_delete = []
+    for row in X_e:
+        rows_to_delete.append(np.where((X_c == row).all(axis=1))[0])
+
+    rows_to_delete = np.concatenate(rows_to_delete)
+    
+    X_c = np.delete(X_c, rows_to_delete, axis=0)
+    X_tot = np.concatenate((X_e, X_c, X_e), axis=0)
+
+    return X_tot

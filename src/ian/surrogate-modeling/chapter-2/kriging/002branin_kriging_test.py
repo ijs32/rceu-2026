@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from cpcrr.methods import KrigingFitter
+from shared.cpcrr.methods import KrigingFitter
 
-from cpcrr.functions import branin
+from shared.cpcrr.functions import branin
 
 Nside = 5
 
@@ -38,7 +38,7 @@ print(f"θ {KF.theta}")
 print(f"result {KF.result}")
 
 
-KF.plot_check_model(res=20)
+KF.plot_check_model(objective=branin, res=20)
 
 # KF.test_check_model()
 

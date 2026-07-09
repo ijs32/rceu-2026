@@ -138,7 +138,7 @@ def space_filling_latin_hypercube(
         X_start: np.ndarray,
         pop:int = 25,
         iter:int = 25
-    ):
+    ) -> dict:
     """
     Generate a random Latin hypercube sampling plan in k dimensions.
 
@@ -162,9 +162,20 @@ def space_filling_latin_hypercube(
     
     Returns
     -------
-    np.ndarray
-        An (n, k) array of sample points. Each column is a permutation of
-        the same n bin centres.
+    X_tracker : dict
+        Dictionary containing the resulting sampling plan and its
+        associated quality metrics, with keys:
+
+        X : np.ndarray
+            An (n, k) array of sample points. Each column is a
+            permutation of the same n bin centres.
+        q : float
+            The distance-metric exponent used when evaluating `phi`;
+            retained so it can be reused in a subsequent call to
+            `find_subset`.
+        phi : float
+            The space-filling criterion value for `X`. Lower values
+            indicate a more uniform sampling plan.
     """
     qs = [1,2,5,10,20,50,100]
 
@@ -182,7 +193,7 @@ def space_filling_latin_hypercube(
             X_tracker["phi"] = phi_best
             X_tracker["X"]   = X_best
     
-    return X_tracker["X"], X_tracker["q"]
+    return X_tracker
 
 
 def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> tuple[np.ndarray, float]:
@@ -230,7 +241,7 @@ def align_subset(X_c: np.ndarray, X_e: np.ndarray) -> np.ndarray:
 
     rows_to_delete = np.concatenate(rows_to_delete)
     
-    X_c = np.delete(X_c, rows_to_delete, axis=0)
-    X_tot = np.concatenate((X_e, X_c, X_e), axis=0)
+    X_c   = np.delete(X_c, rows_to_delete, axis=0)
+    X_tot = np.concatenate((X_c, X_e), axis=0)
 
     return X_tot

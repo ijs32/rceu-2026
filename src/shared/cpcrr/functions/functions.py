@@ -78,8 +78,7 @@ def onevarAD(x, A=0.5, B=10, C=-5, D=0):
     :param D:
     :return: f(x)
     """
-    f = A*(((x+D)*6+2)**2)
-    f *= np.sin(((x+D)*6-2)*2)
+    f = A*onevar(x)
     # ??? why not scale x by 6?
     f += B*((x+D) - 0.5)
     f += C

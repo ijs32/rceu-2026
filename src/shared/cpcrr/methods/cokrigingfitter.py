@@ -1,4 +1,5 @@
 from collections.abc import Callable
+import math
 
 import numpy as np
 
@@ -62,7 +63,8 @@ class CoKrigingFitter:
         self.fig = plt.figure(figsize=(6, 5), dpi=100)
 
         # Scipy optimizer result
-        self.result = None
+        self.result  = None
+        self.resultd = None
 
 
         self.d = np.zeros([self.nhigh])
@@ -76,6 +78,8 @@ class CoKrigingFitter:
 
         # full covariance matrix
         self.Sigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
+        self.sqrtSigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
+
 
 
     def fit(self, verbose = False):
@@ -132,22 +136,33 @@ class CoKrigingFitter:
         # initialize
         thetamin = 1e-3
         thetamax = 1e2
-        theta0 = np.full([self.dim], 0.1)
-        # find theta using a numerical method
-        result = minimize(
-            negative_concentrated_log_likelihood,
-            theta0,
-            bounds=self.dim*[(thetamin,thetamax)],
-            method='L-BFGS-B',
-        )
+
+        best_result = None
+        min_log_likelihood = math.inf
+        for _ in range(10):
+            theta0 = 10**np.random.uniform(-3, 2, size=self.dim)
+            # find theta using a numerical method
+            result = minimize(
+                negative_concentrated_log_likelihood,
+                theta0,
+                bounds=self.dim*[(thetamin,thetamax)],
+                method='L-BFGS-B',
+            )
+            
+            if result.fun < min_log_likelihood:
+                min_log_likelihood = result.fun
+                best_result = result
+
         if verbose:
-            print(f"theta {result.x}")
-            print("FULL RESULT", result)
+            print(f"theta {best_result.x}")
+            print("FULL RESULT", best_result)
+
         # re-run to lock in final state after theta is found
-        negative_concentrated_log_likelihood(result.x)
-        self.theta = result.x
+        negative_concentrated_log_likelihood(best_result.x)
+        self.theta = best_result.x
+        
         # for diagnostics
-        self.result = result
+        self.result = best_result
 
 
         def negative_concentrated_log_likelihood_high(theta_rho):
@@ -161,8 +176,8 @@ class CoKrigingFitter:
             Psid = np.eye(self.nhigh)*(1.0+1e-11)
             for i in range(0,self.nhigh):
                 for j in range(i+1, self.nhigh):
-                    # todo
-                    prod = (self.d[i,:] - self.d[j,:])**2 # TODO figure out what d is supposed to be shaped like.
+
+                    prod = (self.x[i,:] - self.x[j,:])**2
                     prod = np.dot(theta, prod)
                     # print(f"prod {prod}")
                     cij = np.exp(-prod)
@@ -203,61 +218,83 @@ class CoKrigingFitter:
         # initialize
         theta_rho_min = 1e-3
         theta_rho_max = 1e2
-        theta_rho_0 = np.full([self.dim+1], 0.1)
-        # find theta using a numerical method
-        result = minimize(
-            negative_concentrated_log_likelihood_high,
-            theta_rho_0,
-            # todo check the bounds for rho
-            bounds=(self.dim+1)*[(theta_rho_min,theta_rho_max)],
-            method='L-BFGS-B',
-        )
+
+        best_result_d = None
+        min_log_likelihood = math.inf
+        for _ in range(10):
+            theta_rho_0 = 10**np.random.uniform(-3, 2, size=(self.dim+1))
+
+            # find theta using a numerical method
+            result = minimize(
+                negative_concentrated_log_likelihood_high,
+                theta_rho_0,
+                # todo check the bounds for rho
+                bounds=(self.dim+1)*[(theta_rho_min,theta_rho_max)],
+                method='L-BFGS-B',
+            )
+
+            if result.fun < min_log_likelihood:
+                min_log_likelihood = result.fun
+                best_result_d = result
+
         if verbose:
-            print(f"theta {result.x}")
-            print("FULL RESULT", result)
+            print(f"theta {best_result_d.x}")
+            print("FULL RESULT", best_result_d)
+
         # re-run to lock in final state after theta is found
-        negative_concentrated_log_likelihood_high(result.x)
-        self.thetad = result.x[:self.dim]
-        self.rho = result.x[-1]
+        negative_concentrated_log_likelihood_high(best_result_d.x)
+        self.thetad = best_result_d.x[:self.dim]
+        self.rho = best_result_d.x[-1]
+
         # for diagnostics
-        self.result = result
+        self.resultd = best_result_d
 
         # Build Sigma
+        Sigma = np.eye(self.nhigh+self.nlow)*(1.0+1e-11)
         for i in range(0,self.nhigh+self.nlow):
+
+            # Build Diagonal
+            if i < self.nlow:
+                Sigma[i,i] = self.globvar
+            else:
+                Sigma[i,i] = self.rho**2 * self.globvar + self.globvard
+
             for j in range(i+1, self.nhigh+self.nlow):
                 if i < self.nlow and j < self.nlow:
                     # top left corner
                     prod = (self.x[i,:] - self.x[j,:])**2
                     prod = np.dot(self.theta, prod)
                     cij = self.globvar * np.exp(-prod)
-                    self.Sigma[i,j] = cij
-                    self.Sigma[j,i] = cij
+                    Sigma[i,j] = cij
+                    Sigma[j,i] = cij
                 elif i >= self.nlow and j >= self.nlow:
                     # high-fidelity subblock -- bottom right corner
                     prodc = (self.x[i,:] - self.x[j,:])**2
                     prodc = np.dot(self.theta, prodc)
                     cijc = self.rho**2 * self.globvar * np.exp(-prodc)
 
-                    prodd = (self.d[i,:] - self.d[j,:])**2
+                    prodd = (self.x[i,:] - self.x[j,:])**2
                     prodd = np.dot(self.thetad, prodd)
                     cijd = self.globvard * np.exp(-prodd)
-                    self.Sigma[i,j] = cijc + cijd
-                    self.Sigma[j,i] = cijc + cijd
+                    Sigma[i,j] = cijc + cijd
+                    Sigma[j,i] = cijc + cijd
                 else:
                     # bottom left and top right
                     prod = (self.x[i,:] - self.x[j,:])**2
                     prod = np.dot(self.theta, prod)
                     cij = self.rho * self.globvar * np.exp(-prod)
-                    self.Sigma[i,j] = cij
-                    self.Sigma[j,i] = cij
+                    Sigma[i,j] = cij
+                    Sigma[j,i] = cij
+        
         try:
-            sqrtSigma = np.linalg.cholesky(self.Sigma)
-        except np.linalg.LinAlgError:
-            print("LINALGERROR")
+            sqrtSigma = np.linalg.cholesky(Sigma)
+        except np.linalg.LinAlgError as e:
+            print("LINALGERROR: ",e)
             return 1e10
         if verbose:
             print(f"√Sigma {sqrtSigma}")
 
+        self.Sigma = Sigma
         self.sqrtSigma = sqrtSigma
 
 
@@ -272,7 +309,7 @@ class CoKrigingFitter:
         """
 
         # build c
-        c = np.zeros([self.ntot])
+        c = np.zeros((self.ntot))
         for i in range(self.ntot):
             if i < self.nlow:
                 # low-fidelity -- cheap points
@@ -286,7 +323,7 @@ class CoKrigingFitter:
                 prodc = np.dot(self.theta, prodc)
                 cic = self.rho**2 * self.globvar * np.exp(-prodc)
 
-                prodd = (self.d[i,:] - x)**2
+                prodd = (self.x[i,:] - x)**2
                 prodd = np.dot(self.thetad, prodd)
                 cid = self.globvard * np.exp(-prodd)
                 c[i] = cic + cid
@@ -307,21 +344,21 @@ class CoKrigingFitter:
         """
 
         # build c
-        c = np.zeros([self.ntot])
+        c = np.zeros((self.ntot))
         for i in range(self.ntot):
             if i < self.nlow:
                 # low-fidelity -- cheap points
-                prod = (self.x[i,:] - x)**2
+                prod = (self.x[i,:] - x[0])**2
                 prod = np.dot(self.theta, prod)
                 ci = self.rho * self.globvar * np.exp(-prod)
                 c[i]= ci
             else:
                 # high-fidelity -- expensive points
-                prodc = (self.x[i,:] - x)**2
+                prodc = (self.x[i,:] - x[0])**2
                 prodc = np.dot(self.theta, prodc)
                 cic = self.rho**2 * self.globvar * np.exp(-prodc)
 
-                prodd = (self.d[i,:] - x)**2
+                prodd = (self.x[i,:] - x[0])**2
                 prodd = np.dot(self.thetad, prodd)
                 cid = self.globvard * np.exp(-prodd)
                 c[i] = cic + cid
@@ -329,11 +366,11 @@ class CoKrigingFitter:
 
         # this aint right just fyi. TODO
         y = self.globmean
-        tmp = solve_triangular(self.Sigma, c, lower=True)
-        tmp2 = solve_triangular(self.Sigma, self.y - self.globmean, lower=True)
+        tmp = solve_triangular(self.sqrtSigma, c, lower=True)
+        tmp2 = solve_triangular(self.sqrtSigma, self.y - self.globmean, lower=True)
         y += np.dot(tmp, tmp2)
 
-        tmp3 = solve_triangular(self.Sigma, np.ones(self.n), lower=True)
+        tmp3 = solve_triangular(self.sqrtSigma, np.ones(self.ntot), lower=True)
         
         term1 = np.dot(tmp, tmp)
         numer = 1.0 - np.dot(tmp3, tmp)
@@ -418,7 +455,7 @@ class CoKrigingFitter:
             raise NotImplementedError
         plt.show()
 
-    def plot_check_model(self, objective: Callable, res = 100):
+    def plot_check_model(self, objective_e: Callable, objective_c: Callable, res = 100):
         """
         Produce a plot to inspect model
         :param res: resolution (sample values per dimension)
@@ -431,12 +468,13 @@ class CoKrigingFitter:
             u = np.ones(Nside)
             for i in range(Nside):
                 y[i], u[i] = self.evaluate_uncertainty(x[i].reshape(-1,1))
+                u[i] = 5
             plt.fill_between(
                 x, y-u, y+u,
                 color='#E0E4E8',
                 alpha=0.6,
                 edgecolor='none',
-                label='$\pm\sigma$',
+                label=r'$\pm\sigma$',
             ),
             plt.plot(
                 x, y,
@@ -444,16 +482,25 @@ class CoKrigingFitter:
                 alpha=0.6,
                 linewidth=0.9,
                 linestyle='-',
-                label='$\hat{y}$',
+                label=r'$\hat{y}$',
                 zorder=3,
             )
             plt.plot(
-                x, objective(x),
+                x, objective_e(x),
                 color='blue',
                 alpha=0.6,
                 linewidth=0.9,
                 linestyle='--',
-                label='$y$',
+                label='$y_e$',
+                zorder=3,
+            )
+            plt.plot(
+                x, objective_c(x),
+                color='red',
+                alpha=0.6,
+                linewidth=0.9,
+                linestyle='--',
+                label='$y_c$',
                 zorder=3,
             )
             scatter_config1 = {
@@ -461,6 +508,7 @@ class CoKrigingFitter:
                 'marker':'^',
                 's':10,
                 'alpha':1.0,
+                'label':'$X_e,Y_e$',
                 'clip_on':False,
             }
             scatter_config2 = {
@@ -469,12 +517,16 @@ class CoKrigingFitter:
                 # 'edgecolors':'#ffffff',
                 'linewidths':1.1,
                 'zorder':4,
-                'label':'$X,Y$',
+                'label':'$X_c,Y_c$',
                 'clip_on':False,
             }
             plt.scatter(
-                self.x, self.y,
+                self.x[:self.nlow], self.y[:self.nlow],
                 **scatter_config2,
+            )
+            plt.scatter(
+                self.x[self.nlow:self.ntot], self.y[self.nlow:self.ntot],
+                **scatter_config1,
             )
             plt.xlim((self.xmin[0], self.xmax[0]))
             plt.xlabel('$x$')
@@ -493,7 +545,7 @@ class CoKrigingFitter:
                 fontsize=10
             )
             # plt.tight_layout()
-            plt.title(f"Kriging $\hat{{y}}$ ($n={len(self.x)}$)")
+            plt.title(rf"co-Kriging $\hat{{y}}$ ($n={len(self.x)}$)")
         elif self.dim == 2:
             Nside = res
             x0 = np.linspace(self.xmin[0], self.xmax[0], Nside)
@@ -509,7 +561,7 @@ class CoKrigingFitter:
             plt.scatter(self.x[:, 0], self.x[:, 1], color='black', marker='^', s=7.5, alpha=1.0)
             plt.colorbar(contour, label='$f(x,y)$')
             plt.grid(True)
-            plt.title(f"$\hat{{f}}(x,y)$ ($n={len(self.x)}$)")
+            plt.title(rf"$\hat{{f}}(x,y)$ ($n={len(self.x)}$)")
 
         else:
             raise NotImplementedError
@@ -518,7 +570,3 @@ class CoKrigingFitter:
 
 
     # todo error plot
-
-
-
-

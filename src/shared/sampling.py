@@ -242,6 +242,6 @@ def align_subset(X_c: np.ndarray, X_e: np.ndarray) -> np.ndarray:
     rows_to_delete = np.concatenate(rows_to_delete)
     
     X_c   = np.delete(X_c, rows_to_delete, axis=0)
-    X_tot = np.concatenate((X_c, X_e), axis=0)
+    X_tot = np.concatenate((X_e, X_c, X_e), axis=0)
 
     return X_tot

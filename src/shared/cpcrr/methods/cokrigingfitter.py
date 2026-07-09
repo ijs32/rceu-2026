@@ -162,7 +162,7 @@ class CoKrigingFitter:
             for i in range(0,self.nhigh):
                 for j in range(i+1, self.nhigh):
                     # todo
-                    prod = (self.d[i,:] - self.d[j,:])**2
+                    prod = (self.d[i,:] - self.d[j,:])**2 # TODO figure out what d is supposed to be shaped like.
                     prod = np.dot(theta, prod)
                     # print(f"prod {prod}")
                     cij = np.exp(-prod)

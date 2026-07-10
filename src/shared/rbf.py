@@ -108,23 +108,33 @@ class Kriging(RBF):
         # initialize
         thetamin = 1e-3
         thetamax = 1e2
-        theta0 = np.full([self.__dim], 0.1)
-        # find theta using a numerical method
-        result = minimize(
-            self.__negative_concentrated_log_likelihood,
-            theta0,
-            bounds=self.__dim*[(thetamin,thetamax)],
-            method='L-BFGS-B',
-        )
+
+        best_result = None
+        min_log_likelihood = math.inf
+        for _ in range(5):
+
+            theta0 = 10**np.random.uniform(-3, 2, size=self.__dim)
+            # find theta using a numerical method
+            result = minimize(
+                self.__negative_concentrated_log_likelihood,
+                theta0,
+                bounds=self.__dim*[(thetamin,thetamax)],
+                method='L-BFGS-B',
+            )
+
+            if result.fun < min_log_likelihood:
+                min_log_likelihood = result.fun
+                best_result = result
+
         if self._verbose:
-            print(f"theta {result.x}")
-            print("FULL RESULT", result)
+            print(f"theta {best_result.x}")
+            print("FULL best_result", best_result)
 
-        self.__set_psi_matrices(result.x)
+        self.__set_psi_matrices(best_result.x)
         # for diagnostics
-        self.result = result
+        self.result = best_result
 
-        return result.x # theta
+        return best_result.x # theta
 
 
     def __negative_concentrated_log_likelihood(self, theta):

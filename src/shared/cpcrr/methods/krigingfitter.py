@@ -152,7 +152,7 @@ class KrigingFitter:
         # build psi
         psi = np.zeros([self.n])
         for i in range(self.n):
-            prod = (self.x[i,:] - x[0])**2
+            prod = (self.x[i,:] - x)**2
             prod = np.dot(self.theta, prod)
             cij = np.exp(-prod)
             psi[i] = cij
@@ -263,7 +263,7 @@ class KrigingFitter:
                 color='#E0E4E8',
                 alpha=0.6,
                 edgecolor='none',
-                label=r'$\pm\sigma$',
+                label='$\pm\sigma$',
             ),
             plt.plot(
                 x, y,
@@ -271,7 +271,7 @@ class KrigingFitter:
                 alpha=0.6,
                 linewidth=0.9,
                 linestyle='-',
-                label=r'$\hat{y}$',
+                label='$\hat{y}$',
                 zorder=3,
             )
             plt.plot(

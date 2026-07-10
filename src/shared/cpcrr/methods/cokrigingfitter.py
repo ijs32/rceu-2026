@@ -454,7 +454,7 @@ class CoKrigingFitter:
             raise NotImplementedError
         plt.show()
 
-    def plot_check_model(self, objective_e: Callable, objective_c: Callable, res = 100):
+    def plot_check_model(self, objective_e: Callable, objective_c: Callable | None = None, res = 100):
         """
         Produce a plot to inspect model
         :param res: resolution (sample values per dimension)
@@ -557,7 +557,9 @@ class CoKrigingFitter:
             Z = Z.reshape((Nside, Nside))
             contour = plt.contourf(X, Y, Z, levels=24, cmap='viridis', alpha=0.85)
             # plot collocation points used to perform model fit
-            plt.scatter(self.x[:, 0], self.x[:, 1], color='black', marker='^', s=7.5, alpha=1.0)
+            plt.scatter(self.x[:self.nlow, 0], self.x[:self.nlow, 1], color='black', marker='^', s=7.5, alpha=1.0)
+            plt.scatter(self.x[self.nlow:self.ntot, 0], self.x[self.nlow:self.ntot, 1], color='red', marker='^', s=7.5, alpha=1.0)
+
             plt.colorbar(contour, label='$f(x,y)$')
             plt.grid(True)
             plt.title(rf"$\hat{{f}}(x,y)$ ($n={len(self.x)}$)")

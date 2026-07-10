@@ -196,7 +196,7 @@ def space_filling_latin_hypercube(
     return X_tracker
 
 
-def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> tuple[np.ndarray, float]:
+def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 5) -> np.ndarray:
 
     rng = np.random.default_rng()
     X_tracker = {
@@ -227,7 +227,7 @@ def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> tuple[np
                     X_tracker["X"]   = X_test
 
         
-    return X_tracker["X"], X_tracker["phi"]
+    return X_tracker["X"]
 
 
 def align_subset(X_c: np.ndarray, X_e: np.ndarray) -> np.ndarray:

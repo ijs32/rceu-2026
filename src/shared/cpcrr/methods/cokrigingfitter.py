@@ -153,6 +153,7 @@ class CoKrigingFitter:
                 min_log_likelihood = result.fun
                 best_result = result
 
+        assert best_result is not None, "optimization failed to produce a result"
         if verbose:
             print(f"theta {best_result.x}")
             print("FULL RESULT", best_result)
@@ -237,6 +238,7 @@ class CoKrigingFitter:
                 min_log_likelihood = result.fun
                 best_result_d = result
 
+        assert best_result_d is not None, "optimization failed to produce a result"
         if verbose:
             print(f"theta {best_result_d.x}")
             print("FULL RESULT", best_result_d)

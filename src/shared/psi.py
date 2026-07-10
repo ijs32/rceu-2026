@@ -1,6 +1,6 @@
 import numpy as np
 
-def psi(r: np.ndarray, code: int = 1, sigma: float = 0, theta: np.ndarray = np.ndarray, p: float = 2) -> np.ndarray:
+def psi(r: np.ndarray, code: int = 1, sigma: float = 0) -> np.ndarray:
     match code:
         case 1: # linear
             return r

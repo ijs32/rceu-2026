@@ -47,6 +47,9 @@ class Twokr(Experiment):
     The response file stores measurements
     in increasing order based on the binary-number
     stamp defining the parameter setting.
+    Purely by convention, the order of the variables
+    is mapped to a **most-to-least**-significant ordering of an
+    increasing binary integer sequence.
     Example:
     The parameters are A, B, C.
     This is their order, given in the parameter specification file.
@@ -59,13 +62,18 @@ class Twokr(Experiment):
         1.23 # is the response when A low, B low, C low
         2.34 # is the response when A low, B low, C high
         3.45 # is the response when A low, B high, C low
+        4.56 # is the response when A low, B high, C high
+        5.67 # is the response when A high, B low, C low
         # etc.
 
     There is a total of eight rows in this `k=3` example.
     In all there are are a total of `2**k` lines, plus a header line.
     If low/high is mapped to binary digits, then
-    the rows form an ordered list 000, 001, 010, 011, 100, 101, 110, 111,
-    the most natural order from the computational point of view.
+    the rows form an ordered list 000, 001, 010, 011, 100, 101, 110, 111.
+    When written this way, in base two, the places of digits correspond
+    (in this example) to {A, B, C}.
+    None of this depends in any way on the endianness of
+    your system's computer architecture!
 
     When multiple repetitions `r > 1` are performed, these form columns.
     Each line then becomes::
@@ -324,8 +332,43 @@ class Twokr(Experiment):
         return f"....90% confidence interval ({low}, {high}).\n"
 
 
-    def variation(self, khot):
-        return self.values.SS[khot]/self.values.SST*100.0
+    def response(self, idx, rep=None):
+        """
+        Response at case index `idx` and optional repetition number `rep`.
+        If no repetition number is given, the (average) response is given,
+        otherwise the raw input response is given.
+        :param idx: integer
+        :param rep: integer (default: None)
+        :return: scalar
+        """
+        smpl = self.esmpls[idx]
+        if rep is not None:
+            response = smpl.raw_data[rep]
+        else:
+            response = 0
+            nrep = len(smpl.raw_data)
+            for rep in range(nrep):
+                response += smpl.raw_data[rep]
+            response /= nrep
+        return response
+
+
+    def effect(self, idx):
+        """
+        Effect at case index `idx`
+        :param idx:
+        :return: scalar
+        """
+        return self.model.q[idx]
+
+
+    def variation(self, idx):
+        """
+        Variation at case index `idx`
+        :param idx:
+        :return: scalar
+        """
+        return self.values.SS[idx]/self.values.SST*100.0
 
 
     def state_variation(self, khot):
@@ -439,8 +482,11 @@ class Twokr(Experiment):
         s90 = self.student90
         values = self.values
         s = values.s
-        out = "......................Input Data (received).................\n"
-        out += "khot_index, factor, response, rep, raw_data[rep]\n"
+        out = ""
+        out += f"response := average {self.response_name} over all repetitions\n"
+        out += f"response[rep] := {self.response_name} at repetition rep (raw data input)\n"
+        out += "......................Input Data (received).................\n"
+        out += "khot_index, factor, response, rep, response[rep]\n"
         for idx in range(N_to_the_k):
             smpl = self.esmpls[idx]
             for rep in range(self.r):
@@ -449,12 +495,12 @@ class Twokr(Experiment):
             out += "...........................Debug Results...........................\n"
             out += "SSY, SST, SSE, se, s\n"
             out += f"{values.SSY}, {values.SST}, {values.SSE}, {values.se}, {s}\n"
-            out += "khot_index, factor, q_effect, SS, %age of variation, lowerCI, upperCI\n"
+            out += "khot_index, factor, effect, SS, %age of variation, lowerCI, upperCI\n"
             for khotidx in range(N_to_the_k):
                 q = self.model.q[khotidx]
                 out += f"{khotidx}, {self.get_string(khotidx)}, {values.SS[khotidx]}, {values.SS[khotidx]/values.SST*100.0}, {q - s90*s}, {q + s90*s}\n"
         out += "...........................Results...........................\n"
-        out += f"factor, average {self.response_name} response\n"
+        out += f"factor, response, effect\n"
         for smpli in range(N_to_the_k):
             out += f"{self.pnames[0]}_{self.plvl[0][get_bit(smpli, 0)]}"
             for i in range(1, self.k):
@@ -463,7 +509,7 @@ class Twokr(Experiment):
             for rep in range(self.r):
                 avg += self.esmpls[smpli].raw_data[rep]
             avg /= self.r
-            out += f", {avg}\n"
+            out += f", {avg}, {self.model.q[smpli]}\n"
         out += ".............................Digest..................................\n"
         if self.r > 1:
             out += "\nNote: if any confidence interval contains 0.0, the result is insignificant. \n\n"

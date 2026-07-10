@@ -157,7 +157,7 @@ def visualize(coords):
 
 if __name__ == '__main__':
 
-    n_points = 32
+    n_points = 64
     dimension = 4
 
     print(f"Optimizing {n_points} points on a {dimension}D sphere...")

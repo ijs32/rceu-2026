@@ -226,7 +226,7 @@ class CoKrigingFitter:
             theta_rho_0 = 10**np.random.uniform(-3, 2, size=(self.dim+1))
 
             # find theta using a numerical method
-            result = minimize(
+            resultd = minimize(
                 negative_concentrated_log_likelihood_high,
                 theta_rho_0,
                 # todo check the bounds for rho
@@ -234,9 +234,9 @@ class CoKrigingFitter:
                 method='L-BFGS-B',
             )
 
-            if result.fun < min_log_likelihood:
-                min_log_likelihood = result.fun
-                best_result_d = result
+            if resultd.fun < min_log_likelihood:
+                min_log_likelihood = resultd.fun
+                best_result_d = resultd
 
         assert best_result_d is not None, "optimization failed to produce a result"
         if verbose:
@@ -252,14 +252,15 @@ class CoKrigingFitter:
         self.resultd = best_result_d
 
         # Build Sigma
-        Sigma = np.eye(self.nhigh+self.nlow)*(1.0+1e-11)
+        nugget = (1.0+1e-11)
+        Sigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
         for i in range(0,self.nhigh+self.nlow):
 
             # Build Diagonal
             if i < self.nlow:
-                Sigma[i,i] = self.globvar
+                Sigma[i,i] = (self.globvar) * nugget
             else:
-                Sigma[i,i] = self.rho**2 * self.globvar + self.globvard
+                Sigma[i,i] = (self.rho**2 * self.globvar + self.globvard) * nugget
 
             for j in range(i+1, self.nhigh+self.nlow):
                 if i < self.nlow and j < self.nlow:
@@ -288,11 +289,13 @@ class CoKrigingFitter:
                     Sigma[i,j] = cij
                     Sigma[j,i] = cij
         
+
         try:
             sqrtSigma = np.linalg.cholesky(Sigma)
         except np.linalg.LinAlgError as e:
             print("LINALGERROR: ",e)
             return 1e10
+        
         if verbose:
             print(f"√Sigma {sqrtSigma}")
 
@@ -371,14 +374,8 @@ class CoKrigingFitter:
         tmp = solve_triangular(self.sqrtSigma, c, lower=True)
         tmp2 = solve_triangular(self.sqrtSigma, self.y - self.globmean, lower=True)
         y += np.dot(tmp, tmp2)
-
-        tmp3 = solve_triangular(self.sqrtSigma, np.ones(self.ntot), lower=True)
         
-        term1 = np.dot(tmp, tmp)
-        numer = 1.0 - np.dot(tmp3, tmp)
-        denom = np.dot(tmp3, tmp3)
-        sigma2 = self.globvar*(1.0 - term1 + numer/denom)
-        u = np.sqrt(np.abs(sigma2))
+        u = np.sqrt(self.rho**2*self.globvar + self.globvard - np.dot(tmp,tmp))
         return y, u
 
     def __call__(self, *coords):
@@ -470,7 +467,7 @@ class CoKrigingFitter:
             u = np.ones(Nside)
             for i in range(Nside):
                 y[i], u[i] = self.evaluate_uncertainty(x[i].reshape(-1,1))
-                u[i] = 5
+                
             plt.fill_between(
                 x, y-u, y+u,
                 color='#E0E4E8',

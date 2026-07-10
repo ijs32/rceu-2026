@@ -87,7 +87,6 @@ def onevarAD(x, A=0.5, B=10, C=-5, D=0):
 onevarAD.dim = 1
 
 
-
 def rastrigin(x):
     """
     This function takes a input vector x and
@@ -102,6 +101,7 @@ def rastrigin(x):
 
 rastrigin.dim = 1
 
+
 def dome(x):
     """
     Dome test function
@@ -115,6 +115,7 @@ def dome(x):
     return out
 
 dome.dim = 1
+
 
 def branin(x, y):
     """
@@ -139,6 +140,26 @@ def branin(x, y):
     return f
 
 branin.dim = 2
+
+
+def braninAD(x,y, A=0.5, B=10, C=-5, D=0):
+    """
+    Normalized x, y to Branin function.
+    Unnormalized branin: x:-5..10, y:0..15
+    :param x: between 0, 1
+    :param y: between 0, 1
+    :return: branin(x,y)
+    """
+    f = A*branin(x,y)
+    # ??? why not scale x by 6?
+    f += B*((x+D) + (y+D) - 0.5)
+    f += C
+    return f
+
+    return f
+
+branin.dim = 2
+
 
 def product_constraint(x):
     """

@@ -353,17 +353,17 @@ class CoKrigingFitter:
         for i in range(self.ntot):
             if i < self.nlow:
                 # low-fidelity -- cheap points
-                prod = (self.x[i,:] - x[0])**2
+                prod = (self.x[i,:] - x)**2
                 prod = np.dot(self.theta, prod)
                 ci = self.rho * self.globvar * np.exp(-prod)
                 c[i]= ci
             else:
                 # high-fidelity -- expensive points
-                prodc = (self.x[i,:] - x[0])**2
+                prodc = (self.x[i,:] - x)**2
                 prodc = np.dot(self.theta, prodc)
                 cic = self.rho**2 * self.globvar * np.exp(-prodc)
 
-                prodd = (self.x[i,:] - x[0])**2
+                prodd = (self.x[i,:] - x)**2
                 prodd = np.dot(self.thetad, prodd)
                 cid = self.globvard * np.exp(-prodd)
                 c[i] = cic + cid
@@ -466,7 +466,7 @@ class CoKrigingFitter:
             y = np.ones(Nside)
             u = np.ones(Nside)
             for i in range(Nside):
-                y[i], u[i] = self.evaluate_uncertainty(x[i].reshape(-1,1))
+                y[i], u[i] = self.evaluate_uncertainty(x[i])
                 
             plt.fill_between(
                 x, y-u, y+u,

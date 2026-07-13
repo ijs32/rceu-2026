@@ -59,7 +59,6 @@ class CoKrigingFitter:
         # Psi, correlation matrix, and sqrt Psi
         self.Psi = np.zeros([self.n, self.n])
         self.sqrtPsi = np.zeros([self.n, self.n])
-        self.LnDetPsi = None
         self.fig = plt.figure(figsize=(6, 5), dpi=100)
 
         # Scipy optimizer result
@@ -79,6 +78,7 @@ class CoKrigingFitter:
         # full covariance matrix
         self.Sigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
         self.sqrtSigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
+        self.LnDetPsi = None
 
 
 
@@ -92,31 +92,50 @@ class CoKrigingFitter:
         def negative_concentrated_log_likelihood(theta):
             # need to construct Psi in terms of the argument theta,
             # so that the minimizer can iteratively update theta.
-            Psi = np.eye(self.nlow)*(1.0+1e-11)
-            for i in range(0,self.nlow):
-                for j in range(i+1, self.nlow):
-                    prod = (self.x[i,:] - self.x[j,:])**2
-                    prod = np.dot(theta, prod)
-                    # print(f"prod {prod}")
-                    cij = np.exp(-prod)
-                    Psi[i,j] = cij
-                    Psi[j,i] = cij
-            if verbose:
-                if self.n < 10:
-                    print(f"Psi {Psi}")
-                else:
-                    print(f"Psi")
-            # penalty if ill-conditioned:
-            # push away the optimizer but don't stop it.
-            try:
-                sqrtPsi = np.linalg.cholesky(Psi)
-            except np.linalg.LinAlgError:
-                print("LINALGERROR")
-                return 1e10
-            if verbose:
-                print(f"√Psi {sqrtPsi}")
-            self.Psi = Psi
-            self.sqrtPsi = sqrtPsi
+            retry = True
+            adapt = 1
+            count = 0
+
+            while retry:
+                retry = False
+                nugget = 1e-11 * adapt
+                Psi = np.eye(self.nlow)*(1.0+nugget)
+                for i in range(0,self.nlow):
+                    for j in range(i+1, self.nlow):
+                        prod = (self.x[i,:] - self.x[j,:])**2
+                        prod = np.dot(theta, prod)
+                        # print(f"prod {prod}")
+                        cij = np.exp(-prod)
+                        Psi[i,j] = cij
+                        Psi[j,i] = cij
+                if verbose:
+                    if self.n < 10:
+                        print(f"Psi {Psi}")
+                    else:
+                        print(f"Psi")
+                # penalty if ill-conditioned:
+                # push away the optimizer but don't stop it.
+                try:
+                    sqrtPsi = np.linalg.cholesky(Psi)
+
+                except np.linalg.LinAlgError:
+                    print("LINALGERROR")
+                    return 1e10
+                if verbose:
+                    print(f"√Psi {sqrtPsi}")
+
+                LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsi))))
+                if LnDetPsi < -300:
+                    if count < 5:
+                        adapt *= 100
+                        retry = True
+                        count += 1
+                    else:
+                        print("ILL CONDITIONED")
+                        return 1e10
+                
+                self.Psi = Psi
+                self.sqrtPsi = sqrtPsi
 
             # find global mean (needed for global variance)
             tmp = solve_triangular(self.sqrtPsi, self.y[:self.nlow], lower=True)
@@ -129,9 +148,10 @@ class CoKrigingFitter:
             self.globvar = np.dot(tmp, tmp)/self.n
             if verbose:
                 print(f"globmean {self.globmean} globvar {self.globvar}")
-            # find concentrated log likelihood
+            # find concentrated log likelihood\
             LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsi))))
             self.LnDetPsi = LnDetPsi
+            
             return self.n/2 * np.log(self.globvar) + 0.5 * LnDetPsi
 
         # initialize
@@ -175,33 +195,51 @@ class CoKrigingFitter:
             for i in range(self.nhigh):
                 self.d[i] = self.y[self.nlow+i] - rho*self.y[i]
 
-            Psid = np.eye(self.nhigh)*(1.0+1e-11)
-            for i in range(0,self.nhigh):
-                for j in range(i+1, self.nhigh):
+            retry = True
+            adapt = 1
+            count = 0
 
-                    prod = (self.x[i,:] - self.x[j,:])**2
-                    prod = np.dot(theta, prod)
-                    # print(f"prod {prod}")
-                    cij = np.exp(-prod)
-                    Psid[i,j] = cij
-                    Psid[j,i] = cij
-            if verbose:
-                if self.n < 10:
-                    print(f"Psid {Psid}")
-                else:
-                    print(f"Psid")
-            # penalty if ill-conditioned:
-            # push away the optimizer but don't stop it.
-            try:
-                sqrtPsid = np.linalg.cholesky(Psid)
-            except np.linalg.LinAlgError:
-                print("LINALGERROR")
-                return 1e10
-            if verbose:
-                print(f"√Psid {sqrtPsid}")
+            while retry:
+                retry = False
 
-            self.Psid = Psid
-            self.sqrtPsid = sqrtPsid
+                nugget = 1e-11 * adapt
+                Psid = np.eye(self.nhigh)*(1.0+nugget)
+                for i in range(0,self.nhigh):
+                    for j in range(i+1, self.nhigh):
+
+                        prod = (self.x[i,:] - self.x[j,:])**2
+                        prod = np.dot(theta, prod)
+                        # print(f"prod {prod}")
+                        cij = np.exp(-prod)
+                        Psid[i,j] = cij
+                        Psid[j,i] = cij
+                if verbose:
+                    if self.n < 10:
+                        print(f"Psid {Psid}")
+                    else:
+                        print(f"Psid")
+                # penalty if ill-conditioned:
+                # push away the optimizer but don't stop it.
+                try:
+                    sqrtPsid = np.linalg.cholesky(Psid)
+                except np.linalg.LinAlgError:
+                    print("LINALGERROR")
+                    return 1e10
+                if verbose:
+                    print(f"√Psid {sqrtPsid}")
+
+                LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsid))))
+                if LnDetPsi < -300:
+                    if count < 5:
+                        adapt *= 100
+                        retry = True
+                        count += 1
+                    else:
+                        print("ILL CONDITIONED")
+                        return 1e10
+                    
+                self.Psid = Psid
+                self.sqrtPsid = sqrtPsid
 
             # find global mean (needed for global variance)
             tmp = solve_triangular(self.sqrtPsid, self.d, lower=True)
@@ -210,7 +248,7 @@ class CoKrigingFitter:
             self.globmeand = np.dot(tmp, tmp2)
             self.globmeand /= np.dot(tmp2, tmp2)
             # find global variance (needed for concentrated log likelihood)
-            tmp = solve_triangular(sqrtPsid, self.d - self.globmeand, lower=True)
+            tmp = solve_triangular(self.sqrtPsid, self.d - self.globmeand, lower=True)
             self.globvard = np.dot(tmp, tmp)/self.nhigh
             # find concentrated log likelihood
             # sic: use sqrtPsi, not sqrtPsid
@@ -455,13 +493,14 @@ class CoKrigingFitter:
             raise NotImplementedError
         plt.show()
 
-    def plot_check_model(self, objective_e: Callable, objective_c: Callable | None = None, res = 100):
+    def plot_check_model(self, objective_e: Callable, objective_c: Callable|None = None, res = 100):
         """
         Produce a plot to inspect model
         :param res: resolution (sample values per dimension)
         """
         if self.dim ==1:
             # for 1d case we also plot uncertainty
+            assert objective_c is not None, "Must supply cheap function."
             Nside = res
             x = np.linspace(self.xmin[0], self.xmax[0], Nside)
             y = np.ones(Nside)

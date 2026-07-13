@@ -155,8 +155,6 @@ def braninAD(x, y, A=0.5, B=10, C=-5, D=0):
     :return: f(x)
     """
     f = A*branin(x, y)
-    f += B*((x+D) + (y+D) - 0.5)
-    f += C
     
     return f
 

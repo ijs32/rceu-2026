@@ -152,7 +152,7 @@ class KrigingFitter:
         # build psi
         psi = np.zeros([self.n])
         for i in range(self.n):
-            prod = (self.x[i,:] - x)**2
+            prod = (self.x[i,:] - x[0])**2
             prod = np.dot(self.theta, prod)
             cij = np.exp(-prod)
             psi[i] = cij

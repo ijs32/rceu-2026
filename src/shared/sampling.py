@@ -201,7 +201,7 @@ def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 5) -> np.ndarr
     rng = np.random.default_rng()
     X_tracker = {
         "phi": math.inf,
-        "X": np.empty([])
+        "X": rng.choice(cube, size=n, replace=False)
     }
 
     for _ in range(iter):

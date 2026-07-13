@@ -59,7 +59,7 @@ class CoKrigingFitter:
         # Psi, correlation matrix, and sqrt Psi
         self.Psi = np.zeros([self.n, self.n])
         self.sqrtPsi = np.zeros([self.n, self.n])
-
+        self.LnDetPsi = None
         self.fig = plt.figure(figsize=(6, 5), dpi=100)
 
         # Scipy optimizer result
@@ -131,6 +131,7 @@ class CoKrigingFitter:
                 print(f"globmean {self.globmean} globvar {self.globvar}")
             # find concentrated log likelihood
             LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsi))))
+            self.LnDetPsi = LnDetPsi
             return self.n/2 * np.log(self.globvar) + 0.5 * LnDetPsi
 
         # initialize
@@ -477,19 +478,19 @@ class CoKrigingFitter:
             ),
             plt.plot(
                 x, y,
-                color='black',
+                color='blue',
                 alpha=0.6,
                 linewidth=0.9,
-                linestyle='-',
+                linestyle='--',
                 label=r'$\hat{y}$',
                 zorder=3,
             )
             plt.plot(
                 x, objective_e(x),
-                color='blue',
+                color='black',
                 alpha=0.6,
                 linewidth=0.9,
-                linestyle='--',
+                linestyle='-',
                 label='$y_e$',
                 zorder=3,
             )

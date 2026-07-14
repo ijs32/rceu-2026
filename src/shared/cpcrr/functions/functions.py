@@ -142,24 +142,6 @@ def branin(x, y):
 branin.dim = 2
 
 
-def braninAD(x, y, A=0.5, B=10, C=-5, D=0):
-    """
-    Cheap one-variable test function with
-    parameters A,B,C,D.
-
-    :param x: between 0..1
-    :param A:
-    :param B:
-    :param C:
-    :param D:
-    :return: f(x)
-    """
-    f = A*branin(x, y)
-    
-    return f
-
-braninAD.dim = 1
-
 def product_constraint(x):
     """
 

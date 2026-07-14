@@ -125,7 +125,7 @@ class CoKrigingFitter:
                     print(f"√Psi {sqrtPsi}")
 
                 LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsi))))
-                if LnDetPsi < -300:
+                if LnDetPsi < -50:
                     if count < 5:
                         adapt *= 100
                         retry = True
@@ -229,7 +229,7 @@ class CoKrigingFitter:
                     print(f"√Psid {sqrtPsid}")
 
                 LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsid))))
-                if LnDetPsi < -300:
+                if LnDetPsi < -50:
                     if count < 5:
                         adapt *= 100
                         retry = True
@@ -337,6 +337,14 @@ class CoKrigingFitter:
         
         if verbose:
             print(f"√Sigma {sqrtSigma}")
+
+        # if np.linalg.cond(sqrtSigma) < -50:
+        #     if count < 5:
+        #         adapt *= 100
+        #         retry = True
+        #         count += 1
+        #     else:
+        #         print("FAIL")
 
         self.Sigma = Sigma
         self.sqrtSigma = sqrtSigma

@@ -3,18 +3,18 @@ import matplotlib.pyplot as plt
 import scipy
 
 from shared.cpcrr.methods.cokrigingfitter import CoKrigingFitter
-from shared.cpcrr.functions.functions import branin, braninAD
+from shared.sample_funcs import peaks, peaksAD
 from shared.sampling import random_latin_hypercube, space_filling_latin_hypercube, find_subset, align_subset
 
-sample_sizes = [i*5 for i in range(1,15)]
-globmeans, globvars, thetas, thetads, rhos, psis, min_dists, LnDetPsis = [], [], [], [], [], [], [], []
+sample_sizes = [i*5 for i in range(1,5)]
+globmeans, globvars, thetas, thetads, rhos, psis, min_dists, LnDetPsis, Sigmas = [], [], [], [], [], [], [], [], []
 
 for size in sample_sizes:
     nlow = size*2
     nhigh = size
     k = 2
 
-    X_rlhc = random_latin_hypercube(nlow, k)
+    X_rlhc = random_latin_hypercube(nlow, k, [-3]*2,[3]*2)
     X_sample = space_filling_latin_hypercube(X_rlhc)
 
     subset = find_subset(X_sample["X"], nhigh, X_sample["q"])
@@ -23,14 +23,14 @@ for size in sample_sizes:
     x_c = datax[:nlow]
     x_e = datax[:nhigh]
 
-    y_c = braninAD(x_c[:,0], x_c[:,1])
-    y_e = branin(x_e[:,0], x_e[:,1])
+    y_c = peaksAD(x_c)
+    y_e = peaks(x_e)
 
     datay = np.concatenate([y_c, y_e])
 
     CKF = CoKrigingFitter(
-        xmin=(0,0),
-        xmax=(1,1),
+        xmin=(-3,-3),
+        xmax=(3,3),
         datax=datax,
         datay=datay,
         nlow=nlow
@@ -42,6 +42,9 @@ for size in sample_sizes:
 
 
     print("Done. ",size)
+    print(CKF.theta)
+    print(CKF.thetad)
+
     globmeans.append(CKF.globmean)
     globvars.append(CKF.globvar)
     thetas.append(CKF.theta[0])
@@ -50,6 +53,7 @@ for size in sample_sizes:
     psis.append(np.linalg.cond(CKF.sqrtPsi))
     min_dists.append(scipy.spatial.distance.pdist(x_c).min())
     LnDetPsis.append(CKF.LnDetPsi)
+    Sigmas.append(np.linalg.cond(CKF.sqrtSigma))
 
 
 variables = {
@@ -60,7 +64,8 @@ variables = {
     "rho": rhos,
     "psis": psis,
     "min_dist": min_dists,
-    "LnDetPsi": LnDetPsis
+    "LnDetPsi": LnDetPsis,
+    "Sigmas": Sigmas
 }
 
 for name, values in variables.items():

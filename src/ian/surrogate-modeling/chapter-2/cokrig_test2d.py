@@ -47,8 +47,8 @@ for size in sample_sizes:
 
     globmeans.append(CKF.globmean)
     globvars.append(CKF.globvar)
-    thetas.append(CKF.theta[0])
-    thetads.append(CKF.thetad[0])
+    thetas.append(CKF.theta)
+    thetads.append(CKF.thetad)
     rhos.append(CKF.rho)
     psis.append(np.linalg.cond(CKF.sqrtPsi))
     min_dists.append(scipy.spatial.distance.pdist(x_c).min())
@@ -70,7 +70,9 @@ variables = {
 
 for name, values in variables.items():
     plt.figure()
-    plt.plot(sample_sizes, values, "o-")
+    if name == "theta" or name == "thetad":
+        plt.plot(sample_sizes, values, "o-")
+    
     plt.title(name)
     plt.xlabel("Sample Size")
     plt.savefig(f"./test_outputs/2d/{name}.png", dpi=150)

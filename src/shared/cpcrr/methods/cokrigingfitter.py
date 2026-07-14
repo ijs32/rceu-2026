@@ -80,6 +80,7 @@ class CoKrigingFitter:
         self.sqrtSigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
         self.LnDetPsi = None
 
+        self.ill_conditioned = -300
 
 
     def fit(self, verbose = False):
@@ -125,7 +126,7 @@ class CoKrigingFitter:
                     print(f"√Psi {sqrtPsi}")
 
                 LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsi))))
-                if LnDetPsi < -50:
+                if LnDetPsi < self.ill_conditioned:
                     if count < 5:
                         adapt *= 100
                         retry = True
@@ -228,8 +229,8 @@ class CoKrigingFitter:
                 if verbose:
                     print(f"√Psid {sqrtPsid}")
 
-                LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsid))))
-                if LnDetPsi < -50:
+                LnDetPsid = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsid))))
+                if LnDetPsid < self.ill_conditioned:
                     if count < 5:
                         adapt *= 100
                         retry = True
@@ -250,10 +251,10 @@ class CoKrigingFitter:
             # find global variance (needed for concentrated log likelihood)
             tmp = solve_triangular(self.sqrtPsid, self.d - self.globmeand, lower=True)
             self.globvard = np.dot(tmp, tmp)/self.nhigh
+            
             # find concentrated log likelihood
-            # sic: use sqrtPsi, not sqrtPsid
-            LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsi))))
-            return self.nhigh/2 * np.log(self.globvard) + 0.5 * LnDetPsi
+            LnDetPsid = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsid))))
+            return self.nhigh/2 * np.log(self.globvard) + 0.5 * LnDetPsid
 
         # initialize
         theta_rho_min = 1e-3
@@ -328,7 +329,6 @@ class CoKrigingFitter:
                     Sigma[i,j] = cij
                     Sigma[j,i] = cij
         
-
         try:
             sqrtSigma = np.linalg.cholesky(Sigma)
         except np.linalg.LinAlgError as e:
@@ -337,14 +337,6 @@ class CoKrigingFitter:
         
         if verbose:
             print(f"√Sigma {sqrtSigma}")
-
-        # if np.linalg.cond(sqrtSigma) < -50:
-        #     if count < 5:
-        #         adapt *= 100
-        #         retry = True
-        #         count += 1
-        #     else:
-        #         print("FAIL")
 
         self.Sigma = Sigma
         self.sqrtSigma = sqrtSigma
@@ -416,7 +408,6 @@ class CoKrigingFitter:
                 c[i] = cic + cid
 
 
-        # this aint right just fyi. TODO
         y = self.globmean
         tmp = solve_triangular(self.sqrtSigma, c, lower=True)
         tmp2 = solve_triangular(self.sqrtSigma, self.y - self.globmean, lower=True)
@@ -594,23 +585,40 @@ class CoKrigingFitter:
             # plt.tight_layout()
             plt.title(rf"co-Kriging $\hat{{y}}$ ($n={len(self.x)}$)")
         elif self.dim == 2:
+
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
             Nside = res
             x0 = np.linspace(self.xmin[0], self.xmax[0], Nside)
             y0 = np.linspace(self.xmin[1], self.xmax[1], Nside)
             X, Y = np.meshgrid(x0, y0)
-            Z = np.ones([Nside*Nside])
             datax_plot = np.column_stack((X.reshape(-1), Y.reshape(-1)))
+            matr = np.hstack((X.reshape((-1, 1)), Y.reshape((-1, 1))))
+            Z_true = objective_e(matr).reshape((Nside,Nside))
+
+            Z = np.ones([Nside*Nside])
             for i in range(datax_plot.shape[0]):
                 Z[i] = self.evaluate(datax_plot[i,:])
             Z = Z.reshape((Nside, Nside))
-            contour = plt.contourf(X, Y, Z, levels=24, cmap='viridis', alpha=0.85)
-            # plot collocation points used to perform model fit
-            plt.scatter(self.x[:self.nlow, 0], self.x[:self.nlow, 1], color='black', marker='^', s=7.5, alpha=1.0)
-            plt.scatter(self.x[self.nlow:self.ntot, 0], self.x[self.nlow:self.ntot, 1], color='red', marker='^', s=7.5, alpha=1.0)
 
-            plt.colorbar(contour, label='$f(x,y)$')
-            plt.grid(True)
-            plt.title(rf"$\hat{{f}}(x,y)$ ($n={len(self.x)}$)")
+            fill1 = ax1.contourf(X, Y, Z_true, levels=24, cmap='viridis')
+            ax1.contour(X, Y, Z_true, levels=24, colors='black', linewidths=0.8)
+            ax1.set_xlabel(r'$x$')
+            ax1.set_ylabel(r'$y$')
+            ax1.set_aspect('equal')
+            fig.colorbar(fill1, ax=ax1, shrink=0.5, aspect=10)
+
+            fill2 = ax2.contourf(X, Y, Z, levels=24, cmap='viridis', alpha=0.85)
+            ax2.contour(X, Y, Z, levels=24, colors='black', linewidths=0.8)
+            # plot collocation points used to perform model fit
+            ax2.scatter(self.x[:self.nlow, 0], self.x[:self.nlow, 1], color='black', marker='^', s=7.5, alpha=1.0)
+            ax2.scatter(self.x[self.nlow:self.ntot, 0], self.x[self.nlow:self.ntot, 1], color='red', marker='^', s=7.5, alpha=1.0)
+
+            ax2.set_xlabel(r'$x$')
+            ax2.set_ylabel(r'$y$')
+            ax2.set_aspect('equal')
+            fig.colorbar(fill2, ax=ax2, shrink=0.5, aspect=10)
+
 
         else:
             raise NotImplementedError

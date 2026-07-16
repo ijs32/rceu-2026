@@ -78,15 +78,13 @@ def onevarAD(x, A=0.5, B=10, C=-5, D=0):
     :param D:
     :return: f(x)
     """
-    f = A*(((x+D)*6+2)**2)
-    f *= np.sin(((x+D)*6-2)*2)
-    # ??? why not scale x by 6?
+    f = A*onevar(x)
     f += B*((x+D) - 0.5)
     f += C
+
     return f
 
 onevarAD.dim = 1
-
 
 
 def rastrigin(x):
@@ -103,6 +101,7 @@ def rastrigin(x):
 
 rastrigin.dim = 1
 
+
 def dome(x):
     """
     Dome test function
@@ -116,6 +115,7 @@ def dome(x):
     return out
 
 dome.dim = 1
+
 
 def branin(x, y):
     """
@@ -140,6 +140,7 @@ def branin(x, y):
     return f
 
 branin.dim = 2
+
 
 def product_constraint(x):
     """

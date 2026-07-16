@@ -295,7 +295,7 @@ class KrigingFitter:
                 color='#E0E4E8',
                 alpha=0.6,
                 edgecolor='none',
-                label='$\pm\sigma$',
+                label=r'$\pm\sigma$',
             ),
             plt.plot(
                 x, y,
@@ -303,7 +303,7 @@ class KrigingFitter:
                 alpha=0.6,
                 linewidth=0.9,
                 linestyle='-',
-                label='$\hat{y}$',
+                label=r'$\hat{y}$',
                 zorder=3,
             )
             plt.plot(
@@ -312,7 +312,7 @@ class KrigingFitter:
                 alpha=0.6,
                 linewidth=0.9,
                 linestyle='--',
-                label='$y$',
+                label=r'$y$',
                 zorder=3,
             )
             scatter_config1 = {
@@ -328,7 +328,7 @@ class KrigingFitter:
                 # 'edgecolors':'#ffffff',
                 'linewidths':1.1,
                 'zorder':4,
-                'label':'$X,Y$',
+                'label':r'$X,Y$',
                 'clip_on':False,
             }
             plt.scatter(
@@ -352,23 +352,39 @@ class KrigingFitter:
                 fontsize=10
             )
             # plt.tight_layout()
-            plt.title(f"Kriging $\hat{{y}}$ ($n={len(self.x)}$)")
+            plt.title(rf"Kriging $\hat{{y}}$ ($n={len(self.x)}$)")
         elif self.dim == 2:
+            self.fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
             Nside = res
             x0 = np.linspace(self.xmin[0], self.xmax[0], Nside)
             y0 = np.linspace(self.xmin[1], self.xmax[1], Nside)
             X, Y = np.meshgrid(x0, y0)
-            Z = np.ones([Nside*Nside])
             datax_plot = np.column_stack((X.reshape(-1), Y.reshape(-1)))
+            matr = np.hstack((X.reshape((-1, 1)), Y.reshape((-1, 1))))
+            Z_true = objective(matr[:,0],matr[:,1]).reshape((Nside,Nside))
+
+            Z = np.ones([Nside*Nside])
             for i in range(datax_plot.shape[0]):
                 Z[i] = self.evaluate(datax_plot[i,:])
             Z = Z.reshape((Nside, Nside))
-            contour = plt.contourf(X, Y, Z, levels=24, cmap='viridis', alpha=0.85)
+
+            fill1 = ax1.contourf(X, Y, Z_true, levels=24, cmap='viridis')
+            ax1.contour(X, Y, Z_true, levels=24, colors='black', linewidths=0.8)
+            ax1.set_xlabel(r'$x$')
+            ax1.set_ylabel(r'$y$')
+            ax1.set_aspect('equal')
+            self.fig.colorbar(fill1, ax=ax1, shrink=0.5, aspect=10)
+
+            fill2 = ax2.contourf(X, Y, Z, levels=24, cmap='viridis', alpha=0.85)
+            ax2.contour(X, Y, Z, levels=24, colors='black', linewidths=0.8)
             # plot collocation points used to perform model fit
             plt.scatter(self.x[:, 0], self.x[:, 1], color='black', marker='^', s=7.5, alpha=1.0)
-            plt.colorbar(contour, label='$f(x,y)$')
-            plt.grid(True)
-            plt.title(f"$\hat{{f}}(x,y)$ ($n={len(self.x)}$)")
+
+            ax2.set_xlabel(r'$x$')
+            ax2.set_ylabel(r'$y$')
+            ax2.set_aspect('equal')
+            self.fig.colorbar(fill2, ax=ax2, shrink=0.5, aspect=10)
 
         else:
             raise NotImplementedError

@@ -22,7 +22,7 @@ class CoKrigingFitter:
 
     """
 
-    def __init__(self, xmin, xmax, datax, datay, nlow, ymin = None, ymax = None):
+    def __init__(self, xmin, xmax, datax, datay, nlow, ill_conditioned = -300, ymin = None, ymax = None):
 
         # todo check:
         # nlow ≥ nhigh
@@ -59,7 +59,6 @@ class CoKrigingFitter:
         # Psi, correlation matrix, and sqrt Psi
         self.Psi = np.zeros([self.n, self.n])
         self.sqrtPsi = np.zeros([self.n, self.n])
-
         self.fig = plt.figure(figsize=(6, 5), dpi=100)
 
         # Scipy optimizer result
@@ -79,7 +78,9 @@ class CoKrigingFitter:
         # full covariance matrix
         self.Sigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
         self.sqrtSigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
+        self.LnDetPsi = None
 
+        self.ill_conditioned = ill_conditioned
 
 
     def fit(self, verbose = False):
@@ -92,31 +93,50 @@ class CoKrigingFitter:
         def negative_concentrated_log_likelihood(theta):
             # need to construct Psi in terms of the argument theta,
             # so that the minimizer can iteratively update theta.
-            Psi = np.eye(self.nlow)*(1.0+1e-11)
-            for i in range(0,self.nlow):
-                for j in range(i+1, self.nlow):
-                    prod = (self.x[i,:] - self.x[j,:])**2
-                    prod = np.dot(theta, prod)
-                    # print(f"prod {prod}")
-                    cij = np.exp(-prod)
-                    Psi[i,j] = cij
-                    Psi[j,i] = cij
-            if verbose:
-                if self.n < 10:
-                    print(f"Psi {Psi}")
-                else:
-                    print(f"Psi")
-            # penalty if ill-conditioned:
-            # push away the optimizer but don't stop it.
-            try:
-                sqrtPsi = np.linalg.cholesky(Psi)
-            except np.linalg.LinAlgError:
-                print("LINALGERROR")
-                return 1e10
-            if verbose:
-                print(f"√Psi {sqrtPsi}")
-            self.Psi = Psi
-            self.sqrtPsi = sqrtPsi
+            retry = True
+            adapt = 1
+            count = 0
+
+            while retry:
+                retry = False
+                nugget = 1e-11 * adapt
+                Psi = np.eye(self.nlow)*(1.0+nugget)
+                for i in range(0,self.nlow):
+                    for j in range(i+1, self.nlow):
+                        prod = (self.x[i,:] - self.x[j,:])**2
+                        prod = np.dot(theta, prod)
+                        # print(f"prod {prod}")
+                        cij = np.exp(-prod)
+                        Psi[i,j] = cij
+                        Psi[j,i] = cij
+                if verbose:
+                    if self.n < 10:
+                        print(f"Psi {Psi}")
+                    else:
+                        print(f"Psi")
+                # penalty if ill-conditioned:
+                # push away the optimizer but don't stop it.
+                try:
+                    sqrtPsi = np.linalg.cholesky(Psi)
+
+                except np.linalg.LinAlgError:
+                    print("LINALGERROR")
+                    return 1e10
+                if verbose:
+                    print(f"√Psi {sqrtPsi}")
+
+                LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsi))))
+                if LnDetPsi < self.ill_conditioned:
+                    if count < 5:
+                        adapt *= 100
+                        retry = True
+                        count += 1
+                    else:
+                        print("ILL CONDITIONED cheap")
+                        return 1e10
+                
+                self.Psi = Psi
+                self.sqrtPsi = sqrtPsi
 
             # find global mean (needed for global variance)
             tmp = solve_triangular(self.sqrtPsi, self.y[:self.nlow], lower=True)
@@ -129,8 +149,10 @@ class CoKrigingFitter:
             self.globvar = np.dot(tmp, tmp)/self.n
             if verbose:
                 print(f"globmean {self.globmean} globvar {self.globvar}")
-            # find concentrated log likelihood
+            # find concentrated log likelihood\
             LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsi))))
+            self.LnDetPsi = LnDetPsi
+            
             return self.n/2 * np.log(self.globvar) + 0.5 * LnDetPsi
 
         # initialize
@@ -174,33 +196,51 @@ class CoKrigingFitter:
             for i in range(self.nhigh):
                 self.d[i] = self.y[self.nlow+i] - rho*self.y[i]
 
-            Psid = np.eye(self.nhigh)*(1.0+1e-11)
-            for i in range(0,self.nhigh):
-                for j in range(i+1, self.nhigh):
+            retry = True
+            adapt = 1
+            count = 0
 
-                    prod = (self.x[i,:] - self.x[j,:])**2
-                    prod = np.dot(theta, prod)
-                    # print(f"prod {prod}")
-                    cij = np.exp(-prod)
-                    Psid[i,j] = cij
-                    Psid[j,i] = cij
-            if verbose:
-                if self.n < 10:
-                    print(f"Psid {Psid}")
-                else:
-                    print(f"Psid")
-            # penalty if ill-conditioned:
-            # push away the optimizer but don't stop it.
-            try:
-                sqrtPsid = np.linalg.cholesky(Psid)
-            except np.linalg.LinAlgError:
-                print("LINALGERROR")
-                return 1e10
-            if verbose:
-                print(f"√Psid {sqrtPsid}")
+            while retry:
+                retry = False
 
-            self.Psid = Psid
-            self.sqrtPsid = sqrtPsid
+                nugget = 1e-11 * adapt
+                Psid = np.eye(self.nhigh)*(1.0+nugget)
+                for i in range(0,self.nhigh):
+                    for j in range(i+1, self.nhigh):
+
+                        prod = (self.x[i,:] - self.x[j,:])**2
+                        prod = np.dot(theta, prod)
+                        # print(f"prod {prod}")
+                        cij = np.exp(-prod)
+                        Psid[i,j] = cij
+                        Psid[j,i] = cij
+                if verbose:
+                    if self.n < 10:
+                        print(f"Psid {Psid}")
+                    else:
+                        print(f"Psid")
+                # penalty if ill-conditioned:
+                # push away the optimizer but don't stop it.
+                try:
+                    sqrtPsid = np.linalg.cholesky(Psid)
+                except np.linalg.LinAlgError:
+                    print("LINALGERROR")
+                    return 1e10
+                if verbose:
+                    print(f"√Psid {sqrtPsid}")
+
+                LnDetPsid = 2*np.sum(np.log(np.abs(np.diagonal(sqrtPsid))))
+                if LnDetPsid < self.ill_conditioned:
+                    if count < 5:
+                        adapt *= 100
+                        retry = True
+                        count += 1
+                    else:
+                        print("ILL CONDITIONED expensive")
+                        return 1e10
+                    
+                self.Psid = Psid
+                self.sqrtPsid = sqrtPsid
 
             # find global mean (needed for global variance)
             tmp = solve_triangular(self.sqrtPsid, self.d, lower=True)
@@ -209,12 +249,12 @@ class CoKrigingFitter:
             self.globmeand = np.dot(tmp, tmp2)
             self.globmeand /= np.dot(tmp2, tmp2)
             # find global variance (needed for concentrated log likelihood)
-            tmp = solve_triangular(sqrtPsid, self.d - self.globmeand, lower=True)
+            tmp = solve_triangular(self.sqrtPsid, self.d - self.globmeand, lower=True)
             self.globvard = np.dot(tmp, tmp)/self.nhigh
+            
             # find concentrated log likelihood
-            # sic: use sqrtPsi, not sqrtPsid
-            LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsi))))
-            return self.nhigh/2 * np.log(self.globvard) + 0.5 * LnDetPsi
+            LnDetPsid = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsid))))
+            return self.nhigh/2 * np.log(self.globvard) + 0.5 * LnDetPsid
 
         # initialize
         theta_rho_min = 1e-3
@@ -289,7 +329,6 @@ class CoKrigingFitter:
                     Sigma[i,j] = cij
                     Sigma[j,i] = cij
         
-
         try:
             sqrtSigma = np.linalg.cholesky(Sigma)
         except np.linalg.LinAlgError as e:
@@ -369,7 +408,6 @@ class CoKrigingFitter:
                 c[i] = cic + cid
 
 
-        # this aint right just fyi. TODO
         y = self.globmean
         tmp = solve_triangular(self.sqrtSigma, c, lower=True)
         tmp2 = solve_triangular(self.sqrtSigma, self.y - self.globmean, lower=True)
@@ -454,13 +492,14 @@ class CoKrigingFitter:
             raise NotImplementedError
         plt.show()
 
-    def plot_check_model(self, objective_e: Callable, objective_c: Callable, res = 100):
+    def plot_check_model(self, objective_e: Callable, objective_c: Callable|None = None, res = 100):
         """
         Produce a plot to inspect model
         :param res: resolution (sample values per dimension)
         """
         if self.dim ==1:
             # for 1d case we also plot uncertainty
+            assert objective_c is not None, "Must supply cheap function."
             Nside = res
             x = np.linspace(self.xmin[0], self.xmax[0], Nside)
             y = np.ones(Nside)
@@ -477,19 +516,19 @@ class CoKrigingFitter:
             ),
             plt.plot(
                 x, y,
-                color='black',
+                color='blue',
                 alpha=0.6,
                 linewidth=0.9,
-                linestyle='-',
+                linestyle='--',
                 label=r'$\hat{y}$',
                 zorder=3,
             )
             plt.plot(
                 x, objective_e(x),
-                color='blue',
+                color='black',
                 alpha=0.6,
                 linewidth=0.9,
-                linestyle='--',
+                linestyle='-',
                 label='$y_e$',
                 zorder=3,
             )
@@ -546,21 +585,40 @@ class CoKrigingFitter:
             # plt.tight_layout()
             plt.title(rf"co-Kriging $\hat{{y}}$ ($n={len(self.x)}$)")
         elif self.dim == 2:
+
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
             Nside = res
             x0 = np.linspace(self.xmin[0], self.xmax[0], Nside)
             y0 = np.linspace(self.xmin[1], self.xmax[1], Nside)
             X, Y = np.meshgrid(x0, y0)
-            Z = np.ones([Nside*Nside])
             datax_plot = np.column_stack((X.reshape(-1), Y.reshape(-1)))
+            matr = np.hstack((X.reshape((-1, 1)), Y.reshape((-1, 1))))
+            Z_true = objective_e(matr).reshape((Nside,Nside))
+
+            Z = np.ones([Nside*Nside])
             for i in range(datax_plot.shape[0]):
                 Z[i] = self.evaluate(datax_plot[i,:])
             Z = Z.reshape((Nside, Nside))
-            contour = plt.contourf(X, Y, Z, levels=24, cmap='viridis', alpha=0.85)
+
+            fill1 = ax1.contourf(X, Y, Z_true, levels=24, cmap='viridis')
+            ax1.contour(X, Y, Z_true, levels=24, colors='black', linewidths=0.8)
+            ax1.set_xlabel(r'$x$')
+            ax1.set_ylabel(r'$y$')
+            ax1.set_aspect('equal')
+            fig.colorbar(fill1, ax=ax1, shrink=0.5, aspect=10)
+
+            fill2 = ax2.contourf(X, Y, Z, levels=24, cmap='viridis', alpha=0.85)
+            ax2.contour(X, Y, Z, levels=24, colors='black', linewidths=0.8)
             # plot collocation points used to perform model fit
-            plt.scatter(self.x[:, 0], self.x[:, 1], color='black', marker='^', s=7.5, alpha=1.0)
-            plt.colorbar(contour, label='$f(x,y)$')
-            plt.grid(True)
-            plt.title(rf"$\hat{{f}}(x,y)$ ($n={len(self.x)}$)")
+            ax2.scatter(self.x[:self.nlow, 0], self.x[:self.nlow, 1], color='black', marker='^', s=7.5, alpha=1.0)
+            ax2.scatter(self.x[self.nlow:self.ntot, 0], self.x[self.nlow:self.ntot, 1], color='red', marker='^', s=7.5, alpha=1.0)
+
+            ax2.set_xlabel(r'$x$')
+            ax2.set_ylabel(r'$y$')
+            ax2.set_aspect('equal')
+            fig.colorbar(fill2, ax=ax2, shrink=0.5, aspect=10)
+
 
         else:
             raise NotImplementedError

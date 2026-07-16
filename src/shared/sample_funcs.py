@@ -15,6 +15,9 @@ def branin(matr):
     t = 1.0 / (8.0 * np.pi)
     return a*(y - b*x**2 + c*x - r)**2 + s*(1 - t)*np.cos(x) + s
 
+def braninAD(matr, A=0.5):
+    return A*branin(matr)
+
 def peaks(matr):
     x = matr[:,0]
     y = matr[:,1]
@@ -22,3 +25,9 @@ def peaks(matr):
     return (3 * (1 - x)**2 * np.exp(-x**2 - (y + 1)**2)
             - 10 * (x/5 - x**3 - y**5) * np.exp(-x**2 - y**2)
             - 1/3 * np.exp(-(x + 1)**2 - y**2))
+
+def peaksAD(matr, A=1, B=10, C=-1, D=0):
+    f = A*peaks(matr)
+    f += C
+
+    return f

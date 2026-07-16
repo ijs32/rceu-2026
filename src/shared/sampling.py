@@ -162,9 +162,8 @@ def space_filling_latin_hypercube(
     
     Returns
     -------
-    X_tracker : dict
-        Dictionary containing the resulting sampling plan and its
-        associated quality metrics, with keys:
+    X_tracker : tuple
+        tuple containing X, q, and phi:
 
         X : np.ndarray
             An (n, k) array of sample points. Each column is a
@@ -193,15 +192,15 @@ def space_filling_latin_hypercube(
             X_tracker["phi"] = phi_best
             X_tracker["X"]   = X_best
     
-    return X_tracker
+    return (X_tracker["X"],X_tracker["phi"],X_tracker["q"])
 
 
-def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> tuple[np.ndarray, float]:
+def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 5) -> np.ndarray:
 
     rng = np.random.default_rng()
     X_tracker = {
         "phi": math.inf,
-        "X": np.empty([])
+        "X": rng.choice(cube, size=n, replace=False)
     }
 
     for _ in range(iter):
@@ -227,7 +226,7 @@ def find_subset(cube: np.ndarray, n: int, q: int = 2, iter: int = 1) -> tuple[np
                     X_tracker["X"]   = X_test
 
         
-    return X_tracker["X"], X_tracker["phi"]
+    return X_tracker["X"]
 
 
 def align_subset(X_c: np.ndarray, X_e: np.ndarray) -> np.ndarray:

@@ -22,7 +22,7 @@ class CoKrigingFitter:
 
     """
 
-    def __init__(self, xmin, xmax, datax, datay, nlow, ymin = None, ymax = None):
+    def __init__(self, xmin, xmax, datax, datay, nlow, ill_conditioned = -300, ymin = None, ymax = None):
 
         # todo check:
         # nlow ≥ nhigh
@@ -80,7 +80,7 @@ class CoKrigingFitter:
         self.sqrtSigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
         self.LnDetPsi = None
 
-        self.ill_conditioned = -300
+        self.ill_conditioned = ill_conditioned
 
 
     def fit(self, verbose = False):
@@ -132,7 +132,7 @@ class CoKrigingFitter:
                         retry = True
                         count += 1
                     else:
-                        print("ILL CONDITIONED")
+                        print("ILL CONDITIONED cheap")
                         return 1e10
                 
                 self.Psi = Psi
@@ -236,7 +236,7 @@ class CoKrigingFitter:
                         retry = True
                         count += 1
                     else:
-                        print("ILL CONDITIONED")
+                        print("ILL CONDITIONED expensive")
                         return 1e10
                     
                 self.Psid = Psid

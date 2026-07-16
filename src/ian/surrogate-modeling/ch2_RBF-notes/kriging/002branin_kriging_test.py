@@ -1,19 +1,13 @@
-
-
-import numpy as np
-
 from shared.cpcrr.methods import KrigingFitter
-
 from shared.cpcrr.functions import branin
 
-Nside = 5
+from shared.sampling import random_latin_hypercube, space_filling_latin_hypercube
 
+size = 100
 
-x0 = np.linspace(0, 1, Nside)
-y0 = np.linspace(0, 1, Nside)
-mg = np.meshgrid(x0, y0)
-X, Y = np.meshgrid(x0, y0)
-datax = np.column_stack((X.reshape(-1), Y.reshape(-1)))
+X_rlhc = random_latin_hypercube(size, 2)
+datax,_,_  = space_filling_latin_hypercube(X_rlhc)
+
 datay = branin(datax[:,0], datax[:,1])
 
 KF = KrigingFitter(
@@ -38,9 +32,9 @@ print(f"θ {KF.theta}")
 print(f"result {KF.result}")
 
 
-KF.plot_check_model(objective=branin, res=20)
+# KF.plot_check_model(objective=branin, res=20)
 
-# KF.test_check_model()
+KF.test_check_model()
 
 
 

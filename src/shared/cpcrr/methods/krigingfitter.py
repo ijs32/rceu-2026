@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize
 
+import warnings
+
+
 
 
 class KrigingFitter:
@@ -27,7 +30,14 @@ class KrigingFitter:
         extent = (M-m)
         self.ymin = ymin if ymin is not None else m-0.1*extent
         self.ymax = ymax if ymax is not None else M+0.1*extent
-        self.x = datax
+        self.datax_min = np.min(datax, axis=0)
+        # Handle the edge case of a flat dimension to avoid division-by-zero
+        self.datax_range = np.ptp(datax, axis=0)
+        self.datax_range[self.datax_range == 0.0] = 1.0
+        # Store the scaled training coordinates.
+        # Scaling to [0,1] helps to ensure numerical stability.
+        self.x = (datax - self.datax_min) / self.datax_range
+        print(f"datamin {self.datax_min} datarange {self.datax_range}")
         self.y = datay
         if len(self.x.shape) == 1:
             self.x = self.x.reshape(-1,1)
@@ -68,11 +78,11 @@ class KrigingFitter:
                     cij = np.exp(-prod)
                     Psi[i,j] = cij
                     Psi[j,i] = cij
-            if verbose:
-                if self.n < 10:
-                    print(f"Psi {Psi}")
-                else:
-                    print(f"Psi")
+            # if verbose:
+            #     if self.n < 10:
+            #         print(f"Psi {Psi}")
+            #     else:
+            #         print(f"Psi")
             # penalty if ill-conditioned:
             # push away the optimizer but don't stop it.
             try:
@@ -80,8 +90,8 @@ class KrigingFitter:
             except np.linalg.LinAlgError:
                 print("LINALGERROR")
                 return 1e10
-            if verbose:
-                print(f"√Psi {sqrtPsi}")
+            # if verbose:
+            #     print(f"√Psi {sqrtPsi}")
             self.Psi = Psi
             self.sqrtPsi = sqrtPsi
 
@@ -102,7 +112,7 @@ class KrigingFitter:
 
         # initialize
         thetamin = 1e-3
-        thetamax = 1e2
+        thetamax = 1e3
         theta0 = np.full([self.dim], 0.1)
         # find theta using a numerical method
         result = minimize(
@@ -111,14 +121,34 @@ class KrigingFitter:
             bounds=self.dim*[(thetamin,thetamax)],
             method='L-BFGS-B',
         )
+        diag_L = np.diagonal(self.sqrtPsi)
+        cond_est = (np.max(diag_L) / np.min(diag_L))**2
         if verbose:
             print(f"theta {result.x}")
             print("FULL RESULT", result)
+            print(f"Psi: {self.Psi}")
+            print(f"√Psi: {self.sqrtPsi}")
+            print(f"estimated condition number: {cond_est}")
+        if cond_est > 1e12:
+            warnings.warn(
+                f"The correlation matrix is ill-conditioned (estimated cond: {cond_est:.2e}). "
+                "Predictions may be numerically unstable. Consider increasing theta_min or normalizing your inputs.",
+                RuntimeWarning
+            )
         # re-run to lock in final state after theta is found
         negative_concentrated_log_likelihood(result.x)
         self.theta = result.x
         # for diagnostics
         self.result = result
+        tolerance = 1e-5
+        at_lower_bound = np.any(self.theta <= thetamin + tolerance)
+        if at_lower_bound:
+            warnings.warn(
+                f"The optimizer hit the lower bound of theta ({thetamin}). "
+                "This indicates the model is over-smoothing. "
+                "Check input scaling.",
+                UserWarning
+            )
 
     def evaluate(self, x):
         """
@@ -129,10 +159,11 @@ class KrigingFitter:
         :param x:
         :return: y
         """
+        x_ = (x - self.datax_min) / self.datax_range
         # build psi
         psi = np.zeros([self.n])
         for i in range(self.n):
-            prod = (self.x[i,:] - x)**2
+            prod = (self.x[i,:] - x_)**2
             prod = np.dot(self.theta, prod)
             cij = np.exp(-prod)
             psi[i] = cij
@@ -149,10 +180,11 @@ class KrigingFitter:
         :param x:
         :return: y, u
         """
+        x_ = (x - self.datax_min) / self.datax_range
         # build psi
         psi = np.zeros([self.n])
         for i in range(self.n):
-            prod = (self.x[i,:] - x)**2
+            prod = (self.x[i,:] - x_)**2
             prod = np.dot(self.theta, prod)
             cij = np.exp(-prod)
             psi[i] = cij

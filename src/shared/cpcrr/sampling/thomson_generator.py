@@ -205,8 +205,10 @@ def visualize(coords):
 
 if __name__ == '__main__':
 
+
+
     n_points = 15
-    dimension = 4
+    dimension = 8
     center = False
     rotation_target = np.ones([dimension])/np.sqrt(dimension)
 

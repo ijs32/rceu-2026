@@ -196,25 +196,28 @@ class KrigingFitter:
         for i in range(self.n):
             ypred, upred = self.evaluate_uncertainty(self.x[i,:])
             yref = self.y[i]
+            print(f"{ypred} - {yref}")
             eps = abs(ypred - yref)
             epss.append(eps)
             us.append(upred)
-        avg = 0.0
-        for eps in epss:
-            avg += eps
-        avg /= self.n
+
+        avg = np.mean(epss)
+        med = np.median(epss)
+
         mx = max(epss)
         mn = min(epss)
+
+        avg_u = np.mean(us)
+        
         # print(epss)
         print(f"minimum error: {mn}")
         print(f"average error: {avg}")
+        print(f"median error: {med}")
         print(f"maximum error: {mx}")
-        print(f"uncertainties: {us}")
+        print(f"avg uncertainty: {avg_u}")
 
 
     # Plotting
-
-
     def plot_check_inputs(self, objective, res = 100):
         """
         Produce a plot to inspect model

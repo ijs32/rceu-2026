@@ -48,7 +48,6 @@ class CoKrigingFitter:
         # We Krige the low-fidelity dataset exactly like ordinary Kriging (cf. KrigingFitter)
         self.ntot = self.x.shape[0]
         self.nlow = nlow
-        self.n = self.nlow # this confuses me.
         self.nhigh = self.x.shape[0] - self.nlow
 
         # global mean and variance
@@ -57,8 +56,8 @@ class CoKrigingFitter:
         self.globvar = np.zeros([1])
         self.theta = np.zeros([self.dim])
         # Psi, correlation matrix, and sqrt Psi
-        self.Psi = np.zeros([self.n, self.n])
-        self.sqrtPsi = np.zeros([self.n, self.n])
+        self.Psi = np.zeros([self.nlow, self.nlow])
+        self.sqrtPsi = np.zeros([self.nlow, self.nlow])
         self.fig = plt.figure(figsize=(6, 5), dpi=100)
 
         # Scipy optimizer result
@@ -110,7 +109,7 @@ class CoKrigingFitter:
                         Psi[i,j] = cij
                         Psi[j,i] = cij
                 if verbose:
-                    if self.n < 10:
+                    if self.nlow < 10:
                         print(f"Psi {Psi}")
                     else:
                         print(f"Psi")
@@ -140,20 +139,20 @@ class CoKrigingFitter:
 
             # find global mean (needed for global variance)
             tmp = solve_triangular(self.sqrtPsi, self.y[:self.nlow], lower=True)
-            tmp2 = solve_triangular(self.sqrtPsi, np.ones([self.n]), lower=True)
+            tmp2 = solve_triangular(self.sqrtPsi, np.ones([self.nlow]), lower=True)
             # print(f"tmp {tmp} tmp2 {tmp2}")
             self.globmean = np.dot(tmp, tmp2)
             self.globmean /= np.dot(tmp2, tmp2)
             # find global variance (needed for concentrated log likelihood)
             tmp = solve_triangular(self.sqrtPsi, self.y[:self.nlow] - self.globmean, lower=True)
-            self.globvar = np.dot(tmp, tmp)/self.n
+            self.globvar = np.dot(tmp, tmp)/self.nlow
             if verbose:
                 print(f"globmean {self.globmean} globvar {self.globvar}")
             # find concentrated log likelihood\
             LnDetPsi = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPsi))))
             self.LnDetPsi = LnDetPsi
             
-            return self.n/2 * np.log(self.globvar) + 0.5 * LnDetPsi
+            return self.nlow/2 * np.log(self.globvar) + 0.5 * LnDetPsi
 
         # initialize
         thetamin = 1e-3
@@ -215,7 +214,7 @@ class CoKrigingFitter:
                         Psid[i,j] = cij
                         Psid[j,i] = cij
                 if verbose:
-                    if self.n < 10:
+                    if self.nhigh < 10:
                         print(f"Psid {Psid}")
                     else:
                         print(f"Psid")
@@ -440,16 +439,15 @@ class CoKrigingFitter:
         """
         epss = []
         us = []
-        for i in range(self.n):
+        for i in range(self.ntot):
             ypred, upred = self.evaluate_uncertainty(self.x[i,:])
             yref = self.y[i]
             eps = abs(ypred - yref)
             epss.append(eps)
             us.append(upred)
-        avg = 0.0
-        for eps in epss:
-            avg += eps
-        avg /= self.n
+
+        avg = np.mean(epss)
+        avg /= self.ntot
         mx = max(epss)
         mn = min(epss)
         # print(epss)

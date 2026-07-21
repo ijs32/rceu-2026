@@ -25,10 +25,8 @@ class RBF(Surrogate):
         return psi(D, self.code, sigma)
     
 
-    def get_weights(self, X, PSI):
-        Z_sample = self.func(X)
-
-        return np.linalg.solve(PSI, Z_sample)
+    def get_weights(self, PSI):
+        return np.linalg.solve(PSI, self.y)
     
 
     def optimizer(self, k = 5) -> float:

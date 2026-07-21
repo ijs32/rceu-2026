@@ -4,21 +4,29 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
-class Surrogate(ABC):
+class MFSurrogate(ABC):
 
 
-    def __init__(self, x: np.ndarray, func_e: Callable, code: int = 3,  verbose: bool = False):
+    def __init__(self, x: np.ndarray, nlow: int, func_e: Callable, func_c: Callable, verbose: bool = False):
         self._verbose = verbose
-        
-        self.func_e = func_e # function to approximate
-        self.code   = code # code to pick basis function
-        
+
         self.x = x
-        self.y = self.func_e(x)
-        
-        self._n  = self.x.shape[0]
+
+        self.n   = self.x.shape[0]
         self.dim = self.x.shape[1]
 
+        self.nlow = nlow
+        self.nhigh = self.n - self.nlow
+
+        self.func_e = func_e
+        self.func_c = func_c
+
+        self.x_c = x[:self.nlow]
+        self.x_e = x[:self.nhigh]
+        
+        self.y_c = self.func_c(self.x_c)
+        self.y_e = self.func_e(self.x_e)
+        
 
     def __call__(self, *coords):
         """
@@ -43,31 +51,28 @@ class Surrogate(ABC):
         epss = []
         us = []
         for i in range(self._n):
-            if hasattr(self, 'evaluate_uncertainty'):
-                ypred, upred = self.evaluate_uncertainty(self.x[i,:])
-                us.append(upred)
+            ypred, upred = self.evaluate_uncertainty(self.x[i,:])
+            us.append(upred)
                 
-            else:
-                ypred = self.__call__(self.x[i,:])
-            
             yref = self.y[i]
             eps = abs(ypred - yref)
             epss.append(eps)
 
-        avg = np.mean(epss)
-        avg /= self._n
         mx = max(epss)
         mn = min(epss)
-        # print(epss)
-        print(f"minimum error: {mn}")
-        print(f"average error: {avg}")
-        print(f"maximum error: {mx}")
-        
-        if self.code == 8:
-            print(f"uncertainties: {us}")
-            print(f"avg uncertainty: {np.mean(us)}")
-    
 
+        print(f"minimum error: {mn}")
+        print(f"maximum error: {mx}")
+        print(f"average error: {np.mean(epss)}")
+        print(f"uncertainties: {us}")
+        print(f"avg uncertainty: {np.mean(us)}")
+
+
+    @abstractmethod
+    def evaluate_uncertainty(self, x):
+        """Return (ypred, upred) for a given input x."""
+    
+    
     @abstractmethod
     def evaluate(self, x):
         """Return ypred for a given input x."""

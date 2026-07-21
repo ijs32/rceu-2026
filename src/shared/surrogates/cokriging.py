@@ -11,16 +11,44 @@ from shared.surrogates.surrogate import Surrogate
 class CoKriging(Surrogate):
 
 
-    def __init__(self, X_sample: np.ndarray, func: Callable, verbose: bool = False):
-        super().__init__(X_sample, func, verbose=verbose)
+    def __init__(self, x: np.ndarray, nlow, func: Callable, verbose: bool = False):
+        super().__init__(x, func, verbose=verbose)
 
-        self.Y_sample  = self.func(self.X_sample)
-        self.__n       = self.X_sample.shape[0]
-        self.__dim     = self.X_sample.shape[1]
         self.theta     = self.__find_theta()
         self.thetad, self.rho = self.__find_theta_rho()
         self.sqrtSigma = self.__build_sigma()
-    
+
+        self.ntot = self.x.shape[0]
+        self.nlow = nlow
+        self.nhigh = self.x.shape[0] - self.nlow
+
+        # global mean and variance
+        # Note: global variance can also be called 'sill' or 'process variance'.
+        self.globmean = np.zeros([1])
+        self.globvar = np.zeros([1])
+        self.theta = np.zeros([self._dim])
+        # Psi, correlation matrix, and sqrt Psi
+        self.Psi = np.zeros([self.nlow, self.nlow])
+        self.sqrtPsi = np.zeros([self.nlow, self.nlow])
+
+        # Scipy optimizer result
+        self.result  = None
+        self.resultd = None
+
+        self.d = np.zeros([self.nhigh])
+        self.globmeand = np.zeros([1])
+        self.globvard = np.zeros([1])
+        self.thetad = np.zeros([self._dim])
+        self.Psid = np.zeros([self.nhigh, self.nhigh])
+        self.sqrtPsid = None
+        # scaling parameter: High = rho*Low + Delta
+        self.rho = 1e-3 # needs to be initialized, setting it to min
+
+        # full covariance matrix
+        self.Sigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
+        self.sqrtSigma = np.zeros([self.nlow + self.nhigh, self.nlow + self.nhigh])
+        self.LnDetPsi = None
+
 
     def __set_psi_matrices(self, theta, with_retries: bool):
 
@@ -31,11 +59,11 @@ class CoKriging(Surrogate):
             retry = False
 
             nugget = 1e-11 * adapt
-            PSI = np.eye(self.__n)*(1.0+nugget)
+            PSI = np.eye(self.nlow)*(1.0+nugget)
 
-            for i in range(0,self.__n):
-                for j in range(i+1, self.__n):
-                    prod = (self.X_sample[i,:] - self.X_sample[j,:])**2
+            for i in range(0,self.nlow):
+                for j in range(i+1, self.nlow):
+                    prod = (self.x[i,:] - self.x[j,:])**2
                     prod = np.dot(theta, prod)
                     # print(f"prod {prod}")
                     cij = np.exp(-prod)
@@ -66,12 +94,12 @@ class CoKriging(Surrogate):
         min_log_likelihood = math.inf
         for _ in range(5):
 
-            theta0 = 10**np.random.uniform(-3, 2, size=self.__dim)
+            theta0 = 10**np.random.uniform(-3, 2, size=self._dim)
             # find theta using a numerical method
             result = minimize(
                 self.__negative_concentrated_log_likelihood,
                 theta0,
-                bounds=self.__dim*[(thetamin,thetamax)],
+                bounds=self._dim*[(thetamin,thetamax)],
                 method='L-BFGS-B',
             )
 
@@ -103,8 +131,8 @@ class CoKriging(Surrogate):
             print(f"√PSI {self.sqrtPSI}")
 
         # find global mean (needed for global variance)
-        tmp = solve_triangular(self.sqrtPSI, self.Y_sample, lower=True)
-        tmp2 = solve_triangular(self.sqrtPSI, np.ones([self.__n]), lower=True)
+        tmp = solve_triangular(self.sqrtPSI, self.y, lower=True)
+        tmp2 = solve_triangular(self.sqrtPSI, np.ones([self.nlow]), lower=True)
 
         self.globmean = np.dot(tmp, tmp2)
         self.globmean /= np.dot(tmp2, tmp2)
@@ -112,12 +140,12 @@ class CoKriging(Surrogate):
             print(f"globmean {self.globmean} globvar {self.globvar}")
 
         # find global variance (needed for concentrated log likelihood)
-        tmp = solve_triangular(self.sqrtPSI, self.Y_sample - self.globmean, lower=True)
-        self.globvar = np.dot(tmp, tmp)/self.__n
+        tmp = solve_triangular(self.sqrtPSI, self.y - self.globmean, lower=True)
+        self.globvar = np.dot(tmp, tmp)/self.nlow
 
         # find concentrated log likelihood
         LnDetPSI = 2*np.sum(np.log(np.abs(np.diagonal(self.sqrtPSI))))
-        return self.__n/2 * np.log(self.globvar) + 0.5 * LnDetPSI
+        return self.nlow/2 * np.log(self.globvar) + 0.5 * LnDetPSI
     
 
     def __find_theta_rho(self):
@@ -128,14 +156,14 @@ class CoKriging(Surrogate):
         best_result_d = None
         min_log_likelihood = math.inf
         for _ in range(10):
-            theta_rho_0 = 10**np.random.uniform(-3, 2, size=(self.dim+1))
+            theta_rho_0 = 10**np.random.uniform(-3, 2, size=(self._dim+1))
 
             # find theta using a numerical method
             resultd = minimize(
                 self.__negative_concentrated_log_likelihood_d,
                 theta_rho_0,
                 # todo check the bounds for rho
-                bounds=(self.dim+1)*[(theta_rho_min,theta_rho_max)],
+                bounds=(self._dim+1)*[(theta_rho_min,theta_rho_max)],
                 method='L-BFGS-B',
             )
 
@@ -154,15 +182,15 @@ class CoKriging(Surrogate):
         # lock in final state after theta is found
         self.__set_psi_d_matrices(best_result_d.x, False)
 
-        thetad = best_result_d.x[:self.dim]
+        thetad = best_result_d.x[:self._dim]
         rho = best_result_d.x[-1]
 
         return thetad, rho
 
 
     def __set_psi_d_matrices(self, theta_rho, with_retries: bool):
-        rho = theta_rho[self.dim]
-        theta = theta_rho[:self.dim]
+        rho = theta_rho[self._dim]
+        theta = theta_rho[:self._dim]
 
         for i in range(self.nhigh):
             self.d[i] = self.y[self.nlow+i] - rho*self.y[i]
@@ -186,7 +214,7 @@ class CoKriging(Surrogate):
                     Psid[j,i] = cij
 
             if self.verbose:
-                if self.n < 10:
+                if self.nhigh < 10:
                     print(f"Psid {Psid}")
                 else:
                     print(f"Psid")

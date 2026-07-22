@@ -5,7 +5,9 @@ def appendix_one(x):
     return ((6*x - 2)**2) * np.sin((12*x) - 4)
 
 
-def branin(x,y):
+def branin(matr):
+    x = matr[:,0]
+    y = matr[:,1]
 
     a = 1.0
     b = 5.1 / (4.0 * np.pi**2)
@@ -16,25 +18,28 @@ def branin(x,y):
     return a*(y - b*x**2 + c*x - r)**2 + s*(1 - t)*np.cos(x) + s
 
 
-def braninAD(x,y, A=0.5, C=-1):
-    f = A*branin(x,y)
+def braninAD(matr, A=0.5, C=-1):
+    
+    f = A*branin(matr)
     f += C
 
     return f
 
 
-def peaks(x,y):
-    
+def peaks(matr):
+    x = matr[:,0]
+    y = matr[:,1]
+
     return (3 * (1 - x)**2 * np.exp(-x**2 - (y + 1)**2)
             - 10 * (x/5 - x**3 - y**5) * np.exp(-x**2 - y**2)
-            - 1/3 * np.exp(-(x + 1)**2 - y**2))
+            - 1/3 * np.exp(-(x + 1)**2 - y**2)).reshape(-1, 1)
 
 
-def peaksAD(x,y, A=1, B=10, C=-1, D=0):
-    f = A*peaks(x,y)
+def peaksAD(matr, A=1, B=10, C=-1, D=0):
+    f = A*peaks(matr)
     f += C
 
-    return f
+    return f.reshape(-1, 1)
 
 
 def forrester(x, sd=0):
@@ -81,7 +86,7 @@ def onevar(x):
 onevar.dim = 1
 
 
-def onevarAD(x, A=0.5, B=10, C=-5, D=0):
+def onevarSin(x, A=0.5, B=10, C=-5, D=0):
     """
     Cheap one-variable test function with
     parameters A,B,C,D.
@@ -99,4 +104,4 @@ def onevarAD(x, A=0.5, B=10, C=-5, D=0):
 
     return f
 
-onevarAD.dim = 1
+onevarSin.dim = 1

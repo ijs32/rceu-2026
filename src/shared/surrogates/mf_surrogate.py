@@ -7,11 +7,13 @@ import numpy as np
 class MFSurrogate(ABC):
 
 
-    def __init__(self, x: np.ndarray, nlow: int, func_e: Callable, func_c: Callable, verbose: bool = False):
+    def __init__(self, x: np.ndarray, nlow: int, func_e: Callable, func_c: Callable, xmin, xmax, verbose: bool = False):
         self._verbose = verbose
 
         self.x = x
 
+        self.xmin = xmin
+        self.xmax = xmax
         self.n   = self.x.shape[0]
         self.dim = self.x.shape[1]
 

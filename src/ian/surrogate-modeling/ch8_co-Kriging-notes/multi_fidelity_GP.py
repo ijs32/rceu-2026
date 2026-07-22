@@ -1,44 +1,24 @@
-import numpy as np
-
-from shared.cpcrr.functions import onevar, onevarAD
+from shared.sample_funcs import peaks, peaksAD
 from shared.surrogates.emukitMFGP import EmukitMFGP
 from shared.plotter import Plotter
+from shared.sampling import random_latin_hypercube, space_filling_latin_hypercube, find_subset, align_subset
 
-x_c = np.array([
-    0,
-    0.24,
-    0.5,
-    0.65,
-    1.0,
-    0.1,
-    0.2,
-    0.3,
-    0.5,
-    0.7,
-    0.8,
-    0.9
-])
-nlow = x_c.shape[0]
+nlow = 50
+nhigh = 40
+k = 2
 
-x_e = np.array([
-    0.0,
-    0.24,
-    0.5,
-    0.65,
-    # 0.82,
-    # 0.9,
-    1.0,
-])
+X_rlhc = random_latin_hypercube(nlow, k, [-3,-3],[3,3])
+X_sample,q,_ = space_filling_latin_hypercube(X_rlhc)
 
-datax = np.concatenate([x_c, x_e])
-if len(datax.shape) == 1:
-    datax = datax.reshape(-1,1)
-    
-gp = EmukitMFGP(datax, onevar, onevarAD, nlow)
-plotter = Plotter(
-    gp,
-    xmin=(0,),
-    xmax=(1,),
-)
+subset = find_subset(X_sample, nhigh, q)
+datax  = align_subset(X_sample,subset)
+
+xmin=(-3,-3)
+xmax=(3,3)
+
+gp = EmukitMFGP(datax, peaks, peaksAD, nlow, xmin, xmax)
+print(gp.gpy_linear_mf_model)
+
+plotter = Plotter(gp)
 
 plotter.plot_check_model()

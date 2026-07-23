@@ -140,7 +140,7 @@ class CoKrigingFitter:
             # find global mean (needed for global variance)
             tmp = solve_triangular(self.sqrtPsi, self.y[:self.nlow], lower=True)
             tmp2 = solve_triangular(self.sqrtPsi, np.ones([self.nlow]), lower=True)
-            # print(f"tmp {tmp} tmp2 {tmp2}")
+            # print(f"tmp {tmp.shape} tmp2 {tmp2.shape}")
             self.globmean = np.dot(tmp, tmp2)
             self.globmean /= np.dot(tmp2, tmp2)
             # find global variance (needed for concentrated log likelihood)

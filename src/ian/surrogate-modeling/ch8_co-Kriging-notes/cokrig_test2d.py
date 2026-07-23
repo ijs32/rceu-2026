@@ -9,40 +9,44 @@ from shared.sampling import random_latin_hypercube, space_filling_latin_hypercub
 sample_sizes = [i*5 for i in range(1,5)]
 # globmeans, globvars, thetas, thetads, rhos, psis, min_dists, LnDetPsis, Sigmas = [], [], [], [], [], [], [], [], []
 
-for size in sample_sizes:
-    nlow = size*2
-    nhigh = size
-    k = 2
+# for size in sample_sizes:
+size = 50
 
-    X_rlhc = random_latin_hypercube(nlow, k, [-3]*2,[3]*2)
-    x,q,_ = space_filling_latin_hypercube(X_rlhc)
+nlow = size*2
+nhigh = size
+k = 2
 
-    subset = find_subset(x, nhigh, q)
-    datax  = align_subset(x,subset)
+X_rlhc = random_latin_hypercube(nlow, k, [-3]*2,[3]*2)
+x,q,_ = space_filling_latin_hypercube(X_rlhc)
 
-    x_c = datax[:nlow]
-    x_e = datax[:nhigh]
+subset = find_subset(x, nhigh, q)
+datax  = align_subset(x,subset)
+if len(datax.shape) == 1:
+    datax = datax.reshape(-1,1)
 
-    y_c = peaksAD(x_c[:,0],x_c[:,1])
-    y_e = peaks(x_e[:,0],x_e[:,0])
+x_c = datax[:nlow]
+x_e = datax[:nhigh]
 
-    datay = np.concatenate([y_c, y_e])
+y_c = peaksAD(x_c)
+y_e = peaks(x_e)
 
-    CKF = CoKrigingFitter(
-        xmin=(-3,-3),
-        xmax=(3,3),
-        datax=datax,
-        datay=datay,
-        nlow=nlow
-    )
+datay = np.concatenate([y_c, y_e])
 
-    CKF.fit(
-        # verbose=True,
-    )
+CKF = CoKrigingFitter(
+    xmin=(-3,-3),
+    xmax=(3,3),
+    datax=datax,
+    datay=datay,
+    nlow=nlow
+)
+
+CKF.fit(
+    # verbose=True,
+)
 
 
-    print("Done. ",size)
-    print(CKF.test_check_model())
+print("Done. ",size)
+print(CKF.test_check_model())
     # print(CKF.theta)
     # print(CKF.thetad)
 

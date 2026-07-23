@@ -22,15 +22,15 @@ class EmukitMFGP(MFSurrogate):
 
 
     def arrange_training_data(self):
-        y_c = self.func_c(self.x_c)
-        y_e = self.func_e(self.x_e)
+        y_c = self.func_c(self.x_c).reshape(-1, 1)
+        y_e = self.func_e(self.x_e).reshape(-1, 1)
 
         self.X_train, self.Y_train = convert_xy_lists_to_arrays([self.x_c, self.x_e], [y_c, y_e])
 
 
     def fit_model(self):
         num_fidelities = 2
-        kernels = [GPy.kern.RBF(self.dim, ARD=True), GPy.kern.RBF(self.dim, ARD=True)]
+        kernels = [GPy.kern.Matern52(self.dim, ARD=True), GPy.kern.Matern52(self.dim, ARD=True)]
         for k in kernels:
             for d, (lo, hi) in enumerate(zip(self.xmin, self.xmax)):
                 
@@ -43,12 +43,11 @@ class EmukitMFGP(MFSurrogate):
         self.gpy_linear_mf_model.mixed_noise.Gaussian_noise.fix(1e-6)
         self.gpy_linear_mf_model.mixed_noise.Gaussian_noise_1.fix(1e-6)
 
-        self.gpy_linear_mf_model.optimize_restarts(num_restarts=10)
+        self.gpy_linear_mf_model.optimize_restarts(num_restarts=30)
         self.gpy_linear_mf_model.optimize()
 
 
     def evaluate(self, x):
-        print("SHAPE: ", x.shape)
 
         fidelity_col = np.ones((x.shape[0], 1))
         X_query = np.hstack([x, fidelity_col])
